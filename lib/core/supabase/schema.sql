@@ -1,0 +1,181 @@
+-- -- ====================================================================
+-- -- MONETA (PERSONAL FINANCE TRACKER) - SUPABASE DATABASE SCHEMA
+-- -- ====================================================================
+-- -- Salin dan jalankan Script SQL ini di Supabase SQL Editor (Dashboard Supabase)
+-- -- 1. PROFILES TABLE (Menyimpan data pengguna terikat auth.users)
+-- CREATE TABLE IF NOT EXISTS public.profiles (
+--   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+--   full_name TEXT,
+--   avatar_url TEXT,
+--   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- );
+-- -- 2. CATEGORIES TABLE (Kategori transaksi: Pemasukan / Pengeluaran)
+-- CREATE TABLE IF NOT EXISTS public.categories (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+--   name TEXT NOT NULL,
+--   type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
+--   icon TEXT,
+--   color TEXT,
+--   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- );
+-- -- 3. WALLETS TABLE (Dompet: cash, bank, e-wallet)
+-- CREATE TABLE IF NOT EXISTS public.wallets (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+--   name TEXT NOT NULL,
+--   type TEXT NOT NULL CHECK (type IN ('cash', 'bank', 'e_wallet')),
+--   balance DECIMAL(15, 2) NOT NULL DEFAULT 0,
+--   icon TEXT,
+--   color TEXT,
+--   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- );
+-- -- 4. TRANSACTIONS TABLE (Data riwayat pencatatan transaksi)
+-- CREATE TABLE IF NOT EXISTS public.transactions (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+--   category_id UUID REFERENCES public.categories(id) ON DELETE SET NULL,
+--   wallet_id UUID REFERENCES public.wallets(id) ON DELETE SET NULL,
+--   title TEXT NOT NULL,
+--   amount DECIMAL(15, 2) NOT NULL,
+--   type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
+--   date TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+--   note TEXT,
+--   receipt_image_url TEXT,
+--   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- );
+-- -- 5. BUDGET_LIMITS TABLE (Batas anggaran per kategori/bulan)
+-- CREATE TABLE IF NOT EXISTS public.budget_limits (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+--   category_id UUID REFERENCES public.categories(id) ON DELETE CASCADE,
+--   monthly_limit DECIMAL(15, 2) NOT NULL,
+--   month INT NOT NULL CHECK (month BETWEEN 1 AND 12),
+--   year INT NOT NULL,
+--   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+--   UNIQUE(user_id, category_id, month, year)
+-- );
+-- -- 6. SPENDING_CHALLENGES TABLE (Tantangan hemat, mis. "no jajan kopi 30 hari")
+-- CREATE TABLE IF NOT EXISTS public.spending_challenges (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+--   title TEXT NOT NULL,
+--   target_amount DECIMAL(15, 2) NOT NULL,
+--   current_amount DECIMAL(15, 2) DEFAULT 0,
+--   start_date TIMESTAMP WITH TIME ZONE NOT NULL,
+--   end_date TIMESTAMP WITH TIME ZONE NOT NULL,
+--   is_completed BOOLEAN DEFAULT FALSE,
+--   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- );
+-- -- 7. SAVING_JARS TABLE (Target Tabungan, mis. "nabung buat laptop")
+-- CREATE TABLE IF NOT EXISTS public.saving_jars (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+--   title TEXT NOT NULL,
+--   target_amount DECIMAL(15, 2) NOT NULL,
+--   current_amount DECIMAL(15, 2) DEFAULT 0,
+--   target_date TIMESTAMP WITH TIME ZONE,
+--   icon TEXT,
+--   is_completed BOOLEAN DEFAULT FALSE,
+--   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- );
+-- -- 8. CREDIT_CARDS TABLE (Kartu Kredit & Paylater)
+-- CREATE TABLE IF NOT EXISTS public.credit_cards (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+--   name TEXT NOT NULL,
+--   provider TEXT,
+--   credit_limit DECIMAL(15, 2) NOT NULL,
+--   current_usage DECIMAL(15, 2) DEFAULT 0,
+--   due_date INT CHECK (due_date BETWEEN 1 AND 31),
+--   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- );
+-- -- 9. DEBTS TABLE (Buku Utang & Piutang)
+-- CREATE TABLE IF NOT EXISTS public.debts (
+--   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+--   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+--   type TEXT NOT NULL CHECK (type IN ('debt', 'receivable')), -- debt = utang saya, receivable = piutang saya
+--   counterparty_name TEXT NOT NULL,
+--   amount DECIMAL(15, 2) NOT NULL,
+--   paid_amount DECIMAL(15, 2) DEFAULT 0,
+--   due_date TIMESTAMP WITH TIME ZONE,
+--   is_settled BOOLEAN DEFAULT FALSE,
+--   note TEXT,
+--   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- );
+-- -- ====================================================================
+-- -- ROW LEVEL SECURITY (RLS) POLICIES
+-- -- ====================================================================
+-- ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.wallets ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.budget_limits ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.spending_challenges ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.saving_jars ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.credit_cards ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE public.debts ENABLE ROW LEVEL SECURITY;
+-- -- Profiles Policies
+-- CREATE POLICY "Users can view own profile" ON public.profiles FOR SELECT USING (auth.uid() = id);
+-- CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+-- -- Categories Policies
+-- CREATE POLICY "Users can view own categories" ON public.categories FOR SELECT USING (auth.uid() = user_id OR user_id IS NULL);
+-- CREATE POLICY "Users can insert own categories" ON public.categories FOR INSERT WITH CHECK (auth.uid() = user_id);
+-- CREATE POLICY "Users can update own categories" ON public.categories FOR UPDATE USING (auth.uid() = user_id);
+-- CREATE POLICY "Users can delete own categories" ON public.categories FOR DELETE USING (auth.uid() = user_id);
+-- -- Wallets Policies
+-- CREATE POLICY "Users can view own wallets" ON public.wallets FOR SELECT USING (auth.uid() = user_id);
+-- CREATE POLICY "Users can insert own wallets" ON public.wallets FOR INSERT WITH CHECK (auth.uid() = user_id);
+-- CREATE POLICY "Users can update own wallets" ON public.wallets FOR UPDATE USING (auth.uid() = user_id);
+-- CREATE POLICY "Users can delete own wallets" ON public.wallets FOR DELETE USING (auth.uid() = user_id);
+-- -- Transactions Policies
+-- CREATE POLICY "Users can view own transactions" ON public.transactions FOR SELECT USING (auth.uid() = user_id);
+-- CREATE POLICY "Users can insert own transactions" ON public.transactions FOR INSERT WITH CHECK (auth.uid() = user_id);
+-- CREATE POLICY "Users can update own transactions" ON public.transactions FOR UPDATE USING (auth.uid() = user_id);
+-- CREATE POLICY "Users can delete own transactions" ON public.transactions FOR DELETE USING (auth.uid() = user_id);
+-- -- Budget Limits Policies
+-- CREATE POLICY "Users can view own budget limits" ON public.budget_limits FOR SELECT USING (auth.uid() = user_id);
+-- CREATE POLICY "Users can insert own budget limits" ON public.budget_limits FOR INSERT WITH CHECK (auth.uid() = user_id);
+-- CREATE POLICY "Users can update own budget limits" ON public.budget_limits FOR UPDATE USING (auth.uid() = user_id);
+-- CREATE POLICY "Users can delete own budget limits" ON public.budget_limits FOR DELETE USING (auth.uid() = user_id);
+-- -- Spending Challenges Policies
+-- CREATE POLICY "Users can view own challenges" ON public.spending_challenges FOR SELECT USING (auth.uid() = user_id);
+-- CREATE POLICY "Users can insert own challenges" ON public.spending_challenges FOR INSERT WITH CHECK (auth.uid() = user_id);
+-- CREATE POLICY "Users can update own challenges" ON public.spending_challenges FOR UPDATE USING (auth.uid() = user_id);
+-- CREATE POLICY "Users can delete own challenges" ON public.spending_challenges FOR DELETE USING (auth.uid() = user_id);
+-- -- Saving Jars Policies
+-- CREATE POLICY "Users can view own saving jars" ON public.saving_jars FOR SELECT USING (auth.uid() = user_id);
+-- CREATE POLICY "Users can insert own saving jars" ON public.saving_jars FOR INSERT WITH CHECK (auth.uid() = user_id);
+-- CREATE POLICY "Users can update own saving jars" ON public.saving_jars FOR UPDATE USING (auth.uid() = user_id);
+-- CREATE POLICY "Users can delete own saving jars" ON public.saving_jars FOR DELETE USING (auth.uid() = user_id);
+-- -- Credit Cards Policies
+-- CREATE POLICY "Users can view own credit cards" ON public.credit_cards FOR SELECT USING (auth.uid() = user_id);
+-- CREATE POLICY "Users can insert own credit cards" ON public.credit_cards FOR INSERT WITH CHECK (auth.uid() = user_id);
+-- CREATE POLICY "Users can update own credit cards" ON public.credit_cards FOR UPDATE USING (auth.uid() = user_id);
+-- CREATE POLICY "Users can delete own credit cards" ON public.credit_cards FOR DELETE USING (auth.uid() = user_id);
+-- -- Debts Policies
+-- CREATE POLICY "Users can view own debts" ON public.debts FOR SELECT USING (auth.uid() = user_id);
+-- CREATE POLICY "Users can insert own debts" ON public.debts FOR INSERT WITH CHECK (auth.uid() = user_id);
+-- CREATE POLICY "Users can update own debts" ON public.debts FOR UPDATE USING (auth.uid() = user_id);
+-- CREATE POLICY "Users can delete own debts" ON public.debts FOR DELETE USING (auth.uid() = user_id);
+-- -- ====================================================================
+-- -- INDEXES (buat performa query laporan & grafik)
+-- -- ====================================================================
+-- CREATE INDEX idx_transactions_user_date ON public.transactions(user_id, date DESC);
+-- CREATE INDEX idx_transactions_user_category ON public.transactions(user_id, category_id);
+-- CREATE INDEX idx_transactions_user_wallet ON public.transactions(user_id, wallet_id);
+-- CREATE INDEX idx_debts_user_settled ON public.debts(user_id, is_settled);
+-- -- ====================================================================
+-- -- AUTOMATIC PROFILE CREATION TRIGGER
+-- -- ====================================================================
+-- CREATE OR REPLACE FUNCTION public.handle_new_user()
+-- RETURNS TRIGGER AS $$
+-- BEGIN
+--   INSERT INTO public.profiles (id, full_name, avatar_url)
+--   VALUES (new.id, new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'avatar_url');
+--   RETURN NEW;
+-- END;
+-- $$ LANGUAGE plpgsql SECURITY DEFINER;
+-- CREATE OR REPLACE TRIGGER on_auth_user_created
+--   AFTER INSERT ON auth.users
+--   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
