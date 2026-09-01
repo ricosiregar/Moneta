@@ -1,5 +1,6 @@
 import 'package:Moneta/core/network/error/failures.dart';
 import 'package:dartz/dartz.dart';
+import '../entities/auth_signup_result.dart';
 import '../entities/user_entity.dart';
 
 /// Domain repository contract for Authentication
@@ -14,7 +15,7 @@ abstract class AuthRepository {
   });
 
   /// Register a new account with email, password, and full name
-  Future<Either<Failure, UserEntity>> signUpWithEmail({
+  Future<Either<Failure, AuthSignUpResult>> signUpWithEmail({
     required String email,
     required String password,
     required String fullName,

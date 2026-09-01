@@ -2,6 +2,7 @@ import 'package:Moneta/core/network/error/failures.dart';
 import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
 import '../../../../core/utils/usecase.dart';
+import '../entities/auth_signup_result.dart';
 import '../entities/user_entity.dart';
 import '../repositories/auth_repository.dart';
 
@@ -42,13 +43,13 @@ class SignInWithEmailParams extends Equatable {
 
 /// UseCase to register with email, password, and full name
 class SignUpWithEmailUseCase
-    implements UseCase<UserEntity, SignUpWithEmailParams> {
+    implements UseCase<AuthSignUpResult, SignUpWithEmailParams> {
   final AuthRepository repository;
 
   SignUpWithEmailUseCase(this.repository);
 
   @override
-  Future<Either<Failure, UserEntity>> call(SignUpWithEmailParams params) {
+  Future<Either<Failure, AuthSignUpResult>> call(SignUpWithEmailParams params) {
     return repository.signUpWithEmail(
       email: params.email,
       password: params.password,

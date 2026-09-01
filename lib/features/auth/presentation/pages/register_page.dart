@@ -49,6 +49,71 @@ class _RegisterPageState extends State<RegisterPage> {
     context.read<AuthBloc>().add(const GoogleSignInSubmitted());
   }
 
+  void _showVerificationDialog(String email) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
+          backgroundColor: Colors.white,
+          elevation: 8,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: const BoxDecoration(
+                    gradient: AppColors.yellowGradient,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.mark_email_read_rounded,
+                    size: 38,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  "Verifikasi Email Dikirim!",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  "Kami telah mengirimkan tautan konfirmasi ke:\n$email\n\nSilakan periksa kotak masuk atau spam email Anda dan klik tautan untuk mengaktifkan akun.",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF636366),
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                PrimaryGradientButton(
+                  text: "Masuk ke Akun",
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                    context.go('/login');
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<AuthBloc, AuthState>(
@@ -67,6 +132,9 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
             ),
           );
+        } else if (state.status == AuthStatus.registeredNeedsVerification) {
+          final email = state.unverifiedEmail ?? _emailController.text.trim();
+          _showVerificationDialog(email);
         }
       },
       builder: (context, state) {

@@ -8,15 +8,24 @@ import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/domain/usecases/auth_usecases.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
-import 'injection.config.dart';
+import '../storage/local_storage.dart';
 
 final GetIt getIt = GetIt.instance;
 
 @InjectableInit(preferRelativeImports: true, asExtension: true)
 Future<void> configureDependencies() async {
-  // 1. Third Party Clients
+  // 1. Third Party Clients & Storage
   if (!getIt.isRegistered<SupabaseClient>()) {
     getIt.registerLazySingleton<SupabaseClient>(() => Supabase.instance.client);
+  }
+  if (!getIt.isRegistered<SharedPreferences>()) {
+    final prefs = await SharedPreferences.getInstance();
+    getIt.registerSingleton<SharedPreferences>(prefs);
+  }
+  if (!getIt.isRegistered<AppLocalStorage>()) {
+    getIt.registerLazySingleton<AppLocalStorage>(
+      () => AppLocalStorageImpl(sharedPreferences: getIt<SharedPreferences>()),
+    );
   }
 
   // 2. Auth Data Layer
@@ -33,22 +42,32 @@ Future<void> configureDependencies() async {
 
   // 3. Auth Domain UseCases
   if (!getIt.isRegistered<GetAuthStateStreamUseCase>()) {
-    getIt.registerLazySingleton(() => GetAuthStateStreamUseCase(getIt<AuthRepository>()));
+    getIt.registerLazySingleton(
+      () => GetAuthStateStreamUseCase(getIt<AuthRepository>()),
+    );
   }
   if (!getIt.isRegistered<SignInWithEmailUseCase>()) {
-    getIt.registerLazySingleton(() => SignInWithEmailUseCase(getIt<AuthRepository>()));
+    getIt.registerLazySingleton(
+      () => SignInWithEmailUseCase(getIt<AuthRepository>()),
+    );
   }
   if (!getIt.isRegistered<SignUpWithEmailUseCase>()) {
-    getIt.registerLazySingleton(() => SignUpWithEmailUseCase(getIt<AuthRepository>()));
+    getIt.registerLazySingleton(
+      () => SignUpWithEmailUseCase(getIt<AuthRepository>()),
+    );
   }
   if (!getIt.isRegistered<SignInWithGoogleUseCase>()) {
-    getIt.registerLazySingleton(() => SignInWithGoogleUseCase(getIt<AuthRepository>()));
+    getIt.registerLazySingleton(
+      () => SignInWithGoogleUseCase(getIt<AuthRepository>()),
+    );
   }
   if (!getIt.isRegistered<SignOutUseCase>()) {
     getIt.registerLazySingleton(() => SignOutUseCase(getIt<AuthRepository>()));
   }
   if (!getIt.isRegistered<GetCurrentUserUseCase>()) {
-    getIt.registerLazySingleton(() => GetCurrentUserUseCase(getIt<AuthRepository>()));
+    getIt.registerLazySingleton(
+      () => GetCurrentUserUseCase(getIt<AuthRepository>()),
+    );
   }
 
   // 4. Auth Presentation BLoC
@@ -75,4 +94,3 @@ abstract class RegisterModule {
   Future<SharedPreferences> get sharedPreferences =>
       SharedPreferences.getInstance();
 }
-

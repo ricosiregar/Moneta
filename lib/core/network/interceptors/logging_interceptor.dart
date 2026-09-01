@@ -151,4 +151,49 @@ class LoggingInterceptor extends Interceptor {
     }
     return handler.next(err);
   }
+
+  /// Helper method to log custom service requests (e.g. Supabase, Firebase, etc.)
+  static void logAction({
+    required String title,
+    required String action,
+    Map<String, dynamic>? data,
+  }) {
+    print('''
+╔════════════════════════════════════════════════════════════
+║ 🚀 $title
+║ Action : $action
+║ Time   : ${DateTime.now().toIso8601String()}
+${data != null && data.isNotEmpty ? '║ Data   : $data\n' : ''}╚════════════════════════════════════════════════════════════
+    ''');
+  }
+
+  /// Helper method to log custom service successes
+  static void logSuccess({
+    required String title,
+    required String action,
+    dynamic data,
+  }) {
+    print('''
+╔════════════════════════════════════════════════════════════
+║ ✅ $title SUCCESS
+║ Action : $action
+${data != null ? '║ Result : $data\n' : ''}╚════════════════════════════════════════════════════════════
+    ''');
+  }
+
+  /// Helper method to log custom service errors
+  static void logFailure({
+    required String title,
+    required String action,
+    required dynamic error,
+  }) {
+    print('''
+╔════════════════════════════════════════════════════════════
+║ ❌ $title ERROR
+║ Action  : $action
+║ Message : $error
+╚════════════════════════════════════════════════════════════
+    ''');
+  }
 }
+

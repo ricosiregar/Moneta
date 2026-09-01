@@ -19,24 +19,40 @@ class AppRouter {
 
         final isSplash = location == '/splash';
         final isAuthRoute = location == '/login' || location == '/register';
+        final isCallback = location.contains('login-callback');
 
         // 1. Initial State (Checking Session on startup)
         if (authState.status == AuthStatus.initial) {
-          return isSplash ? null : '/splash';
+          return (isSplash || isCallback) ? null : '/splash';
         }
 
-        // 2. Unauthenticated State (Not logged in)
+        // 2. Authenticated State (Logged in) -> Redirect to dashboard
+        if (authState.status == AuthStatus.authenticated) {
+          return (isAuthRoute || isSplash || isCallback) ? '/dashboard' : null;
+        }
+
+        // 3. Unauthenticated State (Not logged in or awaiting verification)
         if (authState.status == AuthStatus.unauthenticated ||
-            authState.status == AuthStatus.failure) {
+            authState.status == AuthStatus.failure ||
+            authState.status == AuthStatus.registeredNeedsVerification) {
+          if (isCallback) {
+            // While Supabase is still parsing callback token
+            return null;
+          }
           return isAuthRoute ? null : '/login';
         }
 
-        // 3. Authenticated State (Logged in)
-        if (authState.status == AuthStatus.authenticated) {
-          return (isAuthRoute || isSplash) ? '/dashboard' : null;
-        }
-
         return null;
+      },
+      errorBuilder: (context, state) {
+        if (state.uri.toString().contains('login-callback')) {
+          return const SplashPage();
+        }
+        return Scaffold(
+          body: Center(
+            child: Text('Halaman tidak ditemukan: ${state.uri}'),
+          ),
+        );
       },
       routes: [
         GoRoute(
@@ -53,6 +69,11 @@ class AppRouter {
           path: '/register',
           name: 'register',
           builder: (context, state) => const RegisterPage(),
+        ),
+        GoRoute(
+          path: '/login-callback',
+          name: 'login-callback',
+          builder: (context, state) => const SplashPage(),
         ),
         GoRoute(
           path: '/dashboard',

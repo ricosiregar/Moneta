@@ -2,6 +2,7 @@ import 'package:Moneta/core/network/error/exceptions.dart';
 import 'package:Moneta/core/network/error/failures.dart';
 import 'package:dartz/dartz.dart';
 
+import '../../domain/entities/auth_signup_result.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_datasource.dart';
@@ -41,18 +42,18 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Either<Failure, UserEntity>> signUpWithEmail({
+  Future<Either<Failure, AuthSignUpResult>> signUpWithEmail({
     required String email,
     required String password,
     required String fullName,
   }) async {
     try {
-      final userModel = await remoteDataSource.signUpWithEmail(
+      final result = await remoteDataSource.signUpWithEmail(
         email: email,
         password: password,
         fullName: fullName,
       );
-      return Right(userModel.toEntity());
+      return Right(result);
     } on AuthException catch (e) {
       return Left(AuthFailure(message: e.message));
     } on ServerException catch (e) {

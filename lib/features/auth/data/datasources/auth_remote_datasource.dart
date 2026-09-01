@@ -1,5 +1,6 @@
-import 'package:Moneta/core/network/error/exceptions.dart';
+import '../../../../core/network/error/exceptions.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
+import '../../domain/entities/auth_signup_result.dart';
 import '../models/user_model.dart';
 
 abstract class AuthRemoteDataSource {
@@ -13,7 +14,7 @@ abstract class AuthRemoteDataSource {
   });
 
   /// Sign up with email, password, and full name
-  Future<UserModel> signUpWithEmail({
+  Future<AuthSignUpResult> signUpWithEmail({
     required String email,
     required String password,
     required String fullName,
@@ -41,6 +42,9 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       if (user != null) {
         return UserModel.fromSupabaseUser(user);
       }
+      return null;
+    }).handleError((error) {
+      // Gracefully handle OAuth cancellation or access_denied deep link errors
       return null;
     });
   }
@@ -73,7 +77,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }
 
   @override
-  Future<UserModel> signUpWithEmail({
+  Future<AuthSignUpResult> signUpWithEmail({
     required String email,
     required String password,
     required String fullName,
@@ -83,6 +87,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         email: email.trim(),
         password: password,
         data: {'full_name': fullName.trim()},
+        emailRedirectTo: 'io.supabase.moneta://login-callback/',
       );
 
       final user = response.user;
@@ -92,7 +97,13 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         );
       }
 
-      return UserModel.fromSupabaseUser(user);
+      final userModel = UserModel.fromSupabaseUser(user);
+      final needsVerification = response.session == null;
+
+      return AuthSignUpResult(
+        user: userModel.toEntity(),
+        needsEmailVerification: needsVerification,
+      );
     } on sb.AuthException catch (e) {
       throw AuthException(message: e.message);
     } catch (e) {
@@ -120,7 +131,6 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         return UserModel.fromSupabaseUser(user);
       }
 
-      // If OAuth launches external flow, return a placeholder until authStateChanges triggers
       return UserModel(id: '', email: '', fullName: 'Google User');
     } on sb.AuthException catch (e) {
       throw AuthException(message: e.message);
@@ -150,3 +160,5 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     return null;
   }
 }
+
+

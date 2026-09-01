@@ -121,13 +121,26 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           errorMessage: failure.message,
         ),
       ),
-      (user) => emit(
-        state.copyWith(
-          status: AuthStatus.authenticated,
-          user: user,
-          clearError: true,
-        ),
-      ),
+      (signUpResult) {
+        if (signUpResult.needsEmailVerification) {
+          emit(
+            state.copyWith(
+              status: AuthStatus.registeredNeedsVerification,
+              user: signUpResult.user,
+              unverifiedEmail: event.email,
+              clearError: true,
+            ),
+          );
+        } else {
+          emit(
+            state.copyWith(
+              status: AuthStatus.authenticated,
+              user: signUpResult.user,
+              clearError: true,
+            ),
+          );
+        }
+      },
     );
   }
 
@@ -155,8 +168,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
               clearError: true,
             ),
           );
+        } else {
+          // OAuth browser was opened. Reset loading status so if user cancels or returns, UI is not stuck.
+          emit(
+            state.copyWith(
+              status: AuthStatus.unauthenticated,
+              clearError: true,
+            ),
+          );
         }
-        // If OAuth popup is launched, the reactive authStateChanges will trigger AuthUserChanged once completed
       },
     );
   }

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/di/injection.dart';
+import 'core/network/interceptors/supabase_logging_interceptor.dart';
 import 'core/routes/routes.dart';
 import 'core/theme/app_colors.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
@@ -20,11 +21,13 @@ Future<void> main() async {
       await Supabase.initialize(
         url: supabaseUrl,
         anonKey: anonKey,
+        httpClient: SupabaseLoggingClient(),
       );
     }
   } catch (e) {
     debugPrint("Warning: Failed to load .env or initialize Supabase: $e");
   }
+
 
   // Initialize Dependency Injection
   await configureDependencies();
