@@ -1,11 +1,12 @@
 import '../../../../core/network/error/exceptions.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import '../../domain/entities/auth_signup_result.dart';
+import '../../domain/entities/auth_state_entity.dart';
 import '../models/user_model.dart';
 
 abstract class AuthRemoteDataSource {
   /// Reactive stream of user authentication status changes
-  Stream<UserModel?> get authStateChanges;
+  Stream<AuthStateEntity> get authStateChanges;
 
   /// Sign in with email and password
   Future<UserModel> signInWithEmail({
@@ -23,6 +24,12 @@ abstract class AuthRemoteDataSource {
   /// Sign in with Google OAuth flow
   Future<UserModel> signInWithGoogle();
 
+  /// Send password reset email
+  Future<void> sendPasswordResetEmail(String email);
+
+  /// Update password for currently authenticated or recovery session
+  Future<void> updatePassword(String newPassword);
+
   /// Sign out current session
   Future<void> signOut();
 
@@ -36,16 +43,45 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   AuthRemoteDataSourceImpl({required this.supabase});
 
   @override
-  Stream<UserModel?> get authStateChanges {
+  Stream<AuthStateEntity> get authStateChanges {
     return supabase.auth.onAuthStateChange.map((data) {
       final user = data.session?.user ?? supabase.auth.currentUser;
-      if (user != null) {
-        return UserModel.fromSupabaseUser(user);
+      final userModel = user != null ? UserModel.fromSupabaseUser(user) : null;
+
+      AuthEventType eventType;
+      switch (data.event) {
+        case sb.AuthChangeEvent.passwordRecovery:
+          eventType = AuthEventType.passwordRecovery;
+          break;
+        case sb.AuthChangeEvent.signedIn:
+          eventType = AuthEventType.signedIn;
+          break;
+        case sb.AuthChangeEvent.signedOut:
+          eventType = AuthEventType.signedOut;
+          break;
+        case sb.AuthChangeEvent.tokenRefreshed:
+          eventType = AuthEventType.tokenRefreshed;
+          break;
+        case sb.AuthChangeEvent.userUpdated:
+          eventType = AuthEventType.userUpdated;
+          break;
+        default:
+          eventType = userModel != null
+              ? AuthEventType.signedIn
+              : AuthEventType.signedOut;
+          break;
       }
-      return null;
+
+      return AuthStateEntity(
+        user: userModel?.toEntity(),
+        event: eventType,
+      );
     }).handleError((error) {
       // Gracefully handle OAuth cancellation or access_denied deep link errors
-      return null;
+      return const AuthStateEntity(
+        user: null,
+        event: AuthEventType.signedOut,
+      );
     });
   }
 
@@ -137,6 +173,37 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     } catch (e) {
       if (e is AuthException) rethrow;
       throw ServerException(message: 'Google Sign-In gagal: $e');
+    }
+  }
+
+  @override
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await supabase.auth.resetPasswordForEmail(
+        email.trim(),
+        redirectTo: 'io.supabase.moneta://reset-password/',
+      );
+    } on sb.AuthException catch (e) {
+      throw AuthException(message: e.message);
+    } catch (e) {
+      if (e is AuthException) rethrow;
+      throw ServerException(
+        message: 'Gagal mengirim email pemulihan password: $e',
+      );
+    }
+  }
+
+  @override
+  Future<void> updatePassword(String newPassword) async {
+    try {
+      await supabase.auth.updateUser(
+        sb.UserAttributes(password: newPassword),
+      );
+    } on sb.AuthException catch (e) {
+      throw AuthException(message: e.message);
+    } catch (e) {
+      if (e is AuthException) rethrow;
+      throw ServerException(message: 'Gagal memperbarui password: $e');
     }
   }
 

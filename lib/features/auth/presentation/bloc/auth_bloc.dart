@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/utils/usecase.dart';
+import '../../domain/entities/auth_state_entity.dart';
 import '../../domain/usecases/auth_usecases.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
@@ -10,6 +11,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final SignInWithEmailUseCase signInWithEmail;
   final SignUpWithEmailUseCase signUpWithEmail;
   final SignInWithGoogleUseCase signInWithGoogle;
+  final SendPasswordResetEmailUseCase sendPasswordResetEmail;
+  final UpdatePasswordUseCase updatePassword;
   final SignOutUseCase signOut;
   final GetCurrentUserUseCase getCurrentUser;
 
@@ -20,6 +23,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required this.signInWithEmail,
     required this.signUpWithEmail,
     required this.signInWithGoogle,
+    required this.sendPasswordResetEmail,
+    required this.updatePassword,
     required this.signOut,
     required this.getCurrentUser,
   }) : super(const AuthState()) {
@@ -28,6 +33,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<LoginSubmitted>(_onLoginSubmitted);
     on<RegisterSubmitted>(_onRegisterSubmitted);
     on<GoogleSignInSubmitted>(_onGoogleSignInSubmitted);
+    on<ForgotPasswordSubmitted>(_onForgotPasswordSubmitted);
+    on<UpdatePasswordSubmitted>(_onUpdatePasswordSubmitted);
     on<LogoutRequested>(_onLogoutRequested);
   }
 
@@ -55,16 +62,24 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
     // 3. Listen to live reactive stream
     _authStateSubscription = getAuthStateStream().listen(
-      (user) => add(AuthUserChanged(user)),
+      (authStateEntity) => add(AuthUserChanged(authStateEntity)),
     );
   }
 
   void _onAuthUserChanged(AuthUserChanged event, Emitter<AuthState> emit) {
-    if (event.user != null) {
+    if (event.authStateEntity.event == AuthEventType.passwordRecovery) {
+      emit(
+        state.copyWith(
+          status: AuthStatus.passwordRecovery,
+          user: event.authStateEntity.user,
+          clearError: true,
+        ),
+      );
+    } else if (event.authStateEntity.user != null) {
       emit(
         state.copyWith(
           status: AuthStatus.authenticated,
-          user: event.user,
+          user: event.authStateEntity.user,
           clearError: true,
         ),
       );
@@ -177,6 +192,76 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             ),
           );
         }
+      },
+    );
+  }
+
+  Future<void> _onForgotPasswordSubmitted(
+    ForgotPasswordSubmitted event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(state.copyWith(
+      status: AuthStatus.loading,
+      clearError: true,
+      clearSuccess: true,
+    ));
+
+    final result = await sendPasswordResetEmail(
+      SendPasswordResetEmailParams(email: event.email),
+    );
+
+    result.fold(
+      (failure) => emit(
+        state.copyWith(
+          status: AuthStatus.failure,
+          errorMessage: failure.message,
+        ),
+      ),
+      (_) => emit(
+        state.copyWith(
+          status: AuthStatus.passwordResetEmailSent,
+          successMessage:
+              'Tautan reset password telah dikirim ke ${event.email}',
+          clearError: true,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onUpdatePasswordSubmitted(
+    UpdatePasswordSubmitted event,
+    Emitter<AuthState> emit,
+  ) async {
+    emit(state.copyWith(
+      status: AuthStatus.loading,
+      clearError: true,
+      clearSuccess: true,
+    ));
+
+    final result = await updatePassword(
+      UpdatePasswordParams(newPassword: event.newPassword),
+    );
+
+    await result.fold(
+      (failure) async {
+        emit(
+          state.copyWith(
+            status: AuthStatus.failure,
+            errorMessage: failure.message,
+          ),
+        );
+      },
+      (_) async {
+        await signOut(const NoParams());
+        emit(
+          state.copyWith(
+            status: AuthStatus.passwordUpdated,
+            successMessage:
+                'Password berhasil diperbarui. Silakan login kembali.',
+            clearUser: true,
+            clearError: true,
+          ),
+        );
       },
     );
   }

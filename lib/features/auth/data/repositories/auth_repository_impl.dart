@@ -3,6 +3,7 @@ import 'package:Moneta/core/network/error/failures.dart';
 import 'package:dartz/dartz.dart';
 
 import '../../domain/entities/auth_signup_result.dart';
+import '../../domain/entities/auth_state_entity.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_datasource.dart';
@@ -13,10 +14,8 @@ class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl({required this.remoteDataSource});
 
   @override
-  Stream<UserEntity?> get authStateChanges {
-    return remoteDataSource.authStateChanges.map(
-      (userModel) => userModel?.toEntity(),
-    );
+  Stream<AuthStateEntity> get authStateChanges {
+    return remoteDataSource.authStateChanges;
   }
 
   @override
@@ -70,6 +69,38 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       final userModel = await remoteDataSource.signInWithGoogle();
       return Right(userModel.toEntity());
+    } on AuthException catch (e) {
+      return Left(AuthFailure(message: e.message));
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(message: e.message));
+    } catch (e) {
+      return Left(ServerFailure(message: 'Terjadi kesalahan sistem: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> sendPasswordResetEmail(String email) async {
+    try {
+      await remoteDataSource.sendPasswordResetEmail(email);
+      return const Right(null);
+    } on AuthException catch (e) {
+      return Left(AuthFailure(message: e.message));
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(message: e.message));
+    } catch (e) {
+      return Left(ServerFailure(message: 'Terjadi kesalahan sistem: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> updatePassword(String newPassword) async {
+    try {
+      await remoteDataSource.updatePassword(newPassword);
+      return const Right(null);
     } on AuthException catch (e) {
       return Left(AuthFailure(message: e.message));
     } on ServerException catch (e) {

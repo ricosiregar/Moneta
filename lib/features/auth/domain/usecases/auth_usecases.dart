@@ -3,6 +3,7 @@ import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
 import '../../../../core/utils/usecase.dart';
 import '../entities/auth_signup_result.dart';
+import '../entities/auth_state_entity.dart';
 import '../entities/user_entity.dart';
 import '../repositories/auth_repository.dart';
 
@@ -12,7 +13,7 @@ class GetAuthStateStreamUseCase {
 
   GetAuthStateStreamUseCase(this.repository);
 
-  Stream<UserEntity?> call() => repository.authStateChanges;
+  Stream<AuthStateEntity> call() => repository.authStateChanges;
 }
 
 /// UseCase to sign in with email & password
@@ -115,3 +116,47 @@ class GetCurrentUserUseCase implements UseCase<UserEntity?, NoParams> {
     });
   }
 }
+
+/// UseCase to send password reset email
+class SendPasswordResetEmailUseCase
+    implements UseCase<void, SendPasswordResetEmailParams> {
+  final AuthRepository repository;
+
+  SendPasswordResetEmailUseCase(this.repository);
+
+  @override
+  Future<Either<Failure, void>> call(SendPasswordResetEmailParams params) {
+    return repository.sendPasswordResetEmail(params.email);
+  }
+}
+
+class SendPasswordResetEmailParams extends Equatable {
+  final String email;
+
+  const SendPasswordResetEmailParams({required this.email});
+
+  @override
+  List<Object?> get props => [email];
+}
+
+/// UseCase to update password
+class UpdatePasswordUseCase implements UseCase<void, UpdatePasswordParams> {
+  final AuthRepository repository;
+
+  UpdatePasswordUseCase(this.repository);
+
+  @override
+  Future<Either<Failure, void>> call(UpdatePasswordParams params) {
+    return repository.updatePassword(params.newPassword);
+  }
+}
+
+class UpdatePasswordParams extends Equatable {
+  final String newPassword;
+
+  const UpdatePasswordParams({required this.newPassword});
+
+  @override
+  List<Object?> get props => [newPassword];
+}
+

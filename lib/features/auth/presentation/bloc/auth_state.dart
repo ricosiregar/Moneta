@@ -17,6 +17,15 @@ enum AuthStatus {
   /// Registration succeeded but requires email confirmation before login
   registeredNeedsVerification,
 
+  /// App is in password recovery mode from a deep link
+  passwordRecovery,
+
+  /// Password reset email sent successfully
+  passwordResetEmailSent,
+
+  /// Password updated successfully
+  passwordUpdated,
+
   /// Error occurred during auth operation
   failure,
 }
@@ -25,12 +34,14 @@ class AuthState extends Equatable {
   final AuthStatus status;
   final UserEntity? user;
   final String? errorMessage;
+  final String? successMessage;
   final String? unverifiedEmail;
 
   const AuthState({
     this.status = AuthStatus.initial,
     this.user,
     this.errorMessage,
+    this.successMessage,
     this.unverifiedEmail,
   });
 
@@ -39,20 +50,27 @@ class AuthState extends Equatable {
   bool get isInitial => status == AuthStatus.initial;
   bool get isRegisteredNeedsVerification =>
       status == AuthStatus.registeredNeedsVerification;
+  bool get isPasswordResetEmailSent =>
+      status == AuthStatus.passwordResetEmailSent;
+  bool get isPasswordUpdated => status == AuthStatus.passwordUpdated;
 
   AuthState copyWith({
     AuthStatus? status,
     UserEntity? user,
     String? errorMessage,
+    String? successMessage,
     String? unverifiedEmail,
     bool clearUser = false,
     bool clearError = false,
+    bool clearSuccess = false,
     bool clearUnverifiedEmail = false,
   }) {
     return AuthState(
       status: status ?? this.status,
       user: clearUser ? null : (user ?? this.user),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      successMessage:
+          clearSuccess ? null : (successMessage ?? this.successMessage),
       unverifiedEmail: clearUnverifiedEmail
           ? null
           : (unverifiedEmail ?? this.unverifiedEmail),
@@ -60,5 +78,6 @@ class AuthState extends Equatable {
   }
 
   @override
-  List<Object?> get props => [status, user, errorMessage, unverifiedEmail];
+  List<Object?> get props =>
+      [status, user, errorMessage, successMessage, unverifiedEmail];
 }

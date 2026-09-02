@@ -279,13 +279,7 @@ class _LoginPageState extends State<LoginPage> {
                                   // Forgot Password
                                   TextButton(
                                     onPressed: () {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            "Fitur reset password via email segera hadir.",
-                                          ),
-                                        ),
-                                      );
+                                      context.push('/forgot-password');
                                     },
                                     style: TextButton.styleFrom(
                                       padding: EdgeInsets.zero,

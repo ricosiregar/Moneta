@@ -69,6 +69,16 @@ Future<void> configureDependencies() async {
       () => GetCurrentUserUseCase(getIt<AuthRepository>()),
     );
   }
+  if (!getIt.isRegistered<SendPasswordResetEmailUseCase>()) {
+    getIt.registerLazySingleton(
+      () => SendPasswordResetEmailUseCase(getIt<AuthRepository>()),
+    );
+  }
+  if (!getIt.isRegistered<UpdatePasswordUseCase>()) {
+    getIt.registerLazySingleton(
+      () => UpdatePasswordUseCase(getIt<AuthRepository>()),
+    );
+  }
 
   // 4. Auth Presentation BLoC
   if (!getIt.isRegistered<AuthBloc>()) {
@@ -78,6 +88,8 @@ Future<void> configureDependencies() async {
         signInWithEmail: getIt<SignInWithEmailUseCase>(),
         signUpWithEmail: getIt<SignUpWithEmailUseCase>(),
         signInWithGoogle: getIt<SignInWithGoogleUseCase>(),
+        sendPasswordResetEmail: getIt<SendPasswordResetEmailUseCase>(),
+        updatePassword: getIt<UpdatePasswordUseCase>(),
         signOut: getIt<SignOutUseCase>(),
         getCurrentUser: getIt<GetCurrentUserUseCase>(),
       ),

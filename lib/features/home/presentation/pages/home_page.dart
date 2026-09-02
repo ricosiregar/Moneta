@@ -1,7 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../auth/presentation/bloc/auth_event.dart';
 
 
 class DashboardScreen extends StatelessWidget {
@@ -370,91 +367,9 @@ class DashboardScreen extends StatelessWidget {
                                 amount: "-\$674,40",
                                 amountColor: accentExpense,
                               ),
+                              const SizedBox(height: 24),
                             ],
                           ),
-                        ),
-                      ),
-
-                      // Bottom Navigation Bar
-                      Container(
-                        padding: const EdgeInsets.only(
-                          left: 24,
-                          right: 24,
-                          top: 20,
-                          bottom: 40,
-                        ),
-                        decoration: const BoxDecoration(
-                          color: toggleBgColor,
-                          borderRadius: BorderRadius.vertical(
-                            top: Radius.circular(40),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: const BoxDecoration(
-                                gradient: yellowGradient,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.home_outlined,
-                                color: textDark,
-                                size: 28,
-                              ),
-                            ),
-                            const Icon(
-                              Icons.bar_chart,
-                              color: textDark,
-                              size: 28,
-                            ),
-                            const Icon(Icons.sync_alt, color: textDark, size: 28),
-                            const Icon(
-                              Icons.layers_outlined,
-                              color: textDark,
-                              size: 28,
-                            ),
-                            IconButton(
-                              icon: const Icon(
-                                Icons.person_outline,
-                                color: textDark,
-                                size: 28,
-                              ),
-                              onPressed: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (ctx) => AlertDialog(
-                                    title: const Text("Keluar Akun"),
-                                    content: const Text(
-                                      "Apakah Anda yakin ingin keluar dari akun ini?",
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(ctx),
-                                        child: const Text("Batal"),
-                                      ),
-                                      ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: const Color(0xFFE63946),
-                                        ),
-                                        onPressed: () {
-                                          Navigator.pop(ctx);
-                                          context
-                                              .read<AuthBloc>()
-                                              .add(const LogoutRequested());
-                                        },
-                                        child: const Text(
-                                          "Keluar",
-                                          style: TextStyle(color: Colors.white),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
                         ),
                       ),
                     ],

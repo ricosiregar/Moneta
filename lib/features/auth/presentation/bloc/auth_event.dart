@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../../domain/entities/user_entity.dart';
+import '../../domain/entities/auth_state_entity.dart';
 
 abstract class AuthEvent extends Equatable {
   const AuthEvent();
@@ -13,14 +13,14 @@ class AuthSubscriptionRequested extends AuthEvent {
   const AuthSubscriptionRequested();
 }
 
-/// Internal event dispatched when authStateChanges stream yields a user change
+/// Internal event dispatched when authStateChanges stream yields an auth event
 class AuthUserChanged extends AuthEvent {
-  final UserEntity? user;
+  final AuthStateEntity authStateEntity;
 
-  const AuthUserChanged(this.user);
+  const AuthUserChanged(this.authStateEntity);
 
   @override
-  List<Object?> get props => [user];
+  List<Object?> get props => [authStateEntity];
 }
 
 /// Dispatched when user submits the login form
@@ -56,6 +56,26 @@ class RegisterSubmitted extends AuthEvent {
 /// Dispatched when user clicks Sign in with Google
 class GoogleSignInSubmitted extends AuthEvent {
   const GoogleSignInSubmitted();
+}
+
+/// Dispatched when user submits the forgot password form
+class ForgotPasswordSubmitted extends AuthEvent {
+  final String email;
+
+  const ForgotPasswordSubmitted({required this.email});
+
+  @override
+  List<Object?> get props => [email];
+}
+
+/// Dispatched when user submits a new password from the reset password page
+class UpdatePasswordSubmitted extends AuthEvent {
+  final String newPassword;
+
+  const UpdatePasswordSubmitted({required this.newPassword});
+
+  @override
+  List<Object?> get props => [newPassword];
 }
 
 /// Dispatched when user logs out

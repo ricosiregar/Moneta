@@ -1,12 +1,13 @@
 import 'package:Moneta/core/network/error/failures.dart';
 import 'package:dartz/dartz.dart';
 import '../entities/auth_signup_result.dart';
+import '../entities/auth_state_entity.dart';
 import '../entities/user_entity.dart';
 
 /// Domain repository contract for Authentication
 abstract class AuthRepository {
-  /// Reactive stream of the current authenticated user (emits null on logout/expired session)
-  Stream<UserEntity?> get authStateChanges;
+  /// Reactive stream of the current authentication state and user
+  Stream<AuthStateEntity> get authStateChanges;
 
   /// Sign in with email and password
   Future<Either<Failure, UserEntity>> signInWithEmail({
@@ -23,6 +24,12 @@ abstract class AuthRepository {
 
   /// Sign in with Google OAuth
   Future<Either<Failure, UserEntity>> signInWithGoogle();
+
+  /// Send password reset email
+  Future<Either<Failure, void>> sendPasswordResetEmail(String email);
+
+  /// Update password with new password
+  Future<Either<Failure, void>> updatePassword(String newPassword);
 
   /// Sign out current user
   Future<Either<Failure, void>> signOut();

@@ -16,6 +16,7 @@ abstract class AppColors {
   );
 
   static const Color darkPill = Color(0xFF131D26);
+  static const Color darkPillColor = Color(0xFF131D26);
   static const Color textDark = Color(0xFF141414);
   static const Color textMuted = Color(0xFF8E8E93);
   static const Color accentExpense = Color(
@@ -25,5 +26,6 @@ abstract class AppColors {
   // Backgrounds
   static const Color bgOffWhite = Color(0xFFF9F9F5);
   static const Color toggleYellowBg = Color(0xFFFFF7D6);
+  static const Color toggleBgColor = Color(0xFFFFF7D6);
   static const Color cardWhite = Colors.white;
 }
