@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../auth/presentation/bloc/auth_event.dart';
-import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../core/theme/app_colors.dart';
+import '../auth/presentation/bloc/auth_bloc.dart';
+import '../auth/presentation/bloc/auth_event.dart';
+import '../auth/presentation/bloc/auth_state.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -12,9 +12,7 @@ class ProfileScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
           "Keluar Akun",
           style: TextStyle(fontWeight: FontWeight.bold),
@@ -23,13 +21,19 @@ class ProfileScreen extends StatelessWidget {
           "Apakah Anda yakin ingin keluar dari akun Moneta Anda?",
           style: TextStyle(fontSize: 14, color: Color(0xFF636366)),
         ),
-        actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        actionsPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
             child: const Text(
               "Batal",
-              style: TextStyle(color: Color(0xFF8E8E93), fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: Color(0xFF8E8E93),
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           ElevatedButton(
@@ -46,7 +50,10 @@ class ProfileScreen extends StatelessWidget {
             },
             child: const Text(
               "Keluar",
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -63,10 +70,15 @@ class ProfileScreen extends StatelessWidget {
         final String email = user?.email ?? '';
         final String name = fullName.isNotEmpty
             ? fullName
-            : (email.contains('@') ? email.split('@').first : "Pengguna Moneta");
-        final String initial =
-            name.isNotEmpty ? name.substring(0, 1).toUpperCase() : "M";
-        final String displayEmail = email.isNotEmpty ? email : "Belum terhubung";
+            : (email.contains('@')
+                  ? email.split('@').first
+                  : "Pengguna Moneta");
+        final String initial = name.isNotEmpty
+            ? name.substring(0, 1).toUpperCase()
+            : "M";
+        final String displayEmail = email.isNotEmpty
+            ? email
+            : "Belum terhubung";
 
         return Scaffold(
           backgroundColor: AppColors.bgOffWhite,
@@ -198,9 +210,7 @@ class ProfileScreen extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFECEE),
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: const Color(0xFFFFCDD2),
-                            ),
+                            border: Border.all(color: const Color(0xFFFFCDD2)),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -267,9 +277,7 @@ class ProfileScreen extends StatelessWidget {
               ),
             ],
           ),
-          child: Column(
-            children: items,
-          ),
+          child: Column(children: items),
         ),
       ],
     );
@@ -301,10 +309,7 @@ class ProfileScreen extends StatelessWidget {
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(
-          fontSize: 12,
-          color: Color(0xFF8E8E93),
-        ),
+        style: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
       ),
       trailing: const Icon(
         Icons.chevron_right_rounded,
