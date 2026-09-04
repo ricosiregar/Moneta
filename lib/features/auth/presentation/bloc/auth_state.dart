@@ -1,5 +1,7 @@
-import 'package:equatable/equatable.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
 import '../../domain/entities/user_entity.dart';
+
+part 'auth_state.freezed.dart';
 
 enum AuthStatus {
   /// Initial app launch state, checking active session (renders Splash Page)
@@ -30,20 +32,17 @@ enum AuthStatus {
   failure,
 }
 
-class AuthState extends Equatable {
-  final AuthStatus status;
-  final UserEntity? user;
-  final String? errorMessage;
-  final String? successMessage;
-  final String? unverifiedEmail;
+@freezed
+abstract class AuthState with _$AuthState {
+  const AuthState._();
 
-  const AuthState({
-    this.status = AuthStatus.initial,
-    this.user,
-    this.errorMessage,
-    this.successMessage,
-    this.unverifiedEmail,
-  });
+  const factory AuthState({
+    @Default(AuthStatus.initial) AuthStatus status,
+    UserEntity? user,
+    String? errorMessage,
+    String? successMessage,
+    String? unverifiedEmail,
+  }) = _AuthState;
 
   bool get isAuthenticated => status == AuthStatus.authenticated && user != null;
   bool get isLoading => status == AuthStatus.loading;
@@ -53,31 +52,4 @@ class AuthState extends Equatable {
   bool get isPasswordResetEmailSent =>
       status == AuthStatus.passwordResetEmailSent;
   bool get isPasswordUpdated => status == AuthStatus.passwordUpdated;
-
-  AuthState copyWith({
-    AuthStatus? status,
-    UserEntity? user,
-    String? errorMessage,
-    String? successMessage,
-    String? unverifiedEmail,
-    bool clearUser = false,
-    bool clearError = false,
-    bool clearSuccess = false,
-    bool clearUnverifiedEmail = false,
-  }) {
-    return AuthState(
-      status: status ?? this.status,
-      user: clearUser ? null : (user ?? this.user),
-      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
-      successMessage:
-          clearSuccess ? null : (successMessage ?? this.successMessage),
-      unverifiedEmail: clearUnverifiedEmail
-          ? null
-          : (unverifiedEmail ?? this.unverifiedEmail),
-    );
-  }
-
-  @override
-  List<Object?> get props =>
-      [status, user, errorMessage, successMessage, unverifiedEmail];
 }

@@ -1,19 +1,14 @@
-import 'package:equatable/equatable.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
 
-/// Pure Domain Entity representing an authenticated user in Moneta
-class UserEntity extends Equatable {
-  final String id;
-  final String email;
-  final String? fullName;
-  final String? avatarUrl;
+part 'user_entity.freezed.dart';
 
-  const UserEntity({
-    required this.id,
-    required this.email,
-    this.fullName,
-    this.avatarUrl,
-  });
-
-  @override
-  List<Object?> get props => [id, email, fullName, avatarUrl];
+/// Domain entity representing an authenticated user
+@freezed
+abstract class UserEntity with _$UserEntity {
+  const factory UserEntity({
+    required String id,
+    required String email,
+    String? fullName,
+    String? avatarUrl,
+  }) = _UserEntity;
 }

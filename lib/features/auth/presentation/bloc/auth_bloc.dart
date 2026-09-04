@@ -46,13 +46,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     final initialUserResult = await getCurrentUser(const NoParams());
     initialUserResult.fold(
       (_) => emit(
-        state.copyWith(status: AuthStatus.unauthenticated, clearUser: true),
+        state.copyWith(status: AuthStatus.unauthenticated, user: null),
       ),
       (user) => emit(
         state.copyWith(
           status: AuthStatus.authenticated,
           user: user,
-          clearError: true,
+          errorMessage: null,
         ),
       ),
     );
@@ -72,7 +72,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         state.copyWith(
           status: AuthStatus.passwordRecovery,
           user: event.authStateEntity.user,
-          clearError: true,
+          errorMessage: null,
         ),
       );
     } else if (event.authStateEntity.user != null) {
@@ -80,11 +80,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         state.copyWith(
           status: AuthStatus.authenticated,
           user: event.authStateEntity.user,
-          clearError: true,
+          errorMessage: null,
         ),
       );
     } else {
-      emit(state.copyWith(status: AuthStatus.unauthenticated, clearUser: true));
+      emit(state.copyWith(status: AuthStatus.unauthenticated, user: null));
     }
   }
 
@@ -92,7 +92,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     LoginSubmitted event,
     Emitter<AuthState> emit,
   ) async {
-    emit(state.copyWith(status: AuthStatus.loading, clearError: true));
+    emit(state.copyWith(status: AuthStatus.loading, errorMessage: null));
 
     final result = await signInWithEmail(
       SignInWithEmailParams(email: event.email, password: event.password),
@@ -109,7 +109,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         state.copyWith(
           status: AuthStatus.authenticated,
           user: user,
-          clearError: true,
+          errorMessage: null,
         ),
       ),
     );
@@ -119,7 +119,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     RegisterSubmitted event,
     Emitter<AuthState> emit,
   ) async {
-    emit(state.copyWith(status: AuthStatus.loading, clearError: true));
+    emit(state.copyWith(status: AuthStatus.loading, errorMessage: null));
 
     final result = await signUpWithEmail(
       SignUpWithEmailParams(
@@ -143,7 +143,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
               status: AuthStatus.registeredNeedsVerification,
               user: signUpResult.user,
               unverifiedEmail: event.email,
-              clearError: true,
+              errorMessage: null,
             ),
           );
         } else {
@@ -151,7 +151,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             state.copyWith(
               status: AuthStatus.authenticated,
               user: signUpResult.user,
-              clearError: true,
+              errorMessage: null,
             ),
           );
         }
@@ -163,7 +163,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     GoogleSignInSubmitted event,
     Emitter<AuthState> emit,
   ) async {
-    emit(state.copyWith(status: AuthStatus.loading, clearError: true));
+    emit(state.copyWith(status: AuthStatus.loading, errorMessage: null));
 
     final result = await signInWithGoogle(const NoParams());
 
@@ -180,7 +180,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             state.copyWith(
               status: AuthStatus.authenticated,
               user: user,
-              clearError: true,
+              errorMessage: null,
             ),
           );
         } else {
@@ -188,7 +188,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           emit(
             state.copyWith(
               status: AuthStatus.unauthenticated,
-              clearError: true,
+              errorMessage: null,
             ),
           );
         }
@@ -202,8 +202,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     emit(state.copyWith(
       status: AuthStatus.loading,
-      clearError: true,
-      clearSuccess: true,
+      errorMessage: null,
+      successMessage: null,
     ));
 
     final result = await sendPasswordResetEmail(
@@ -222,7 +222,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           status: AuthStatus.passwordResetEmailSent,
           successMessage:
               'Tautan reset password telah dikirim ke ${event.email}',
-          clearError: true,
+          errorMessage: null,
         ),
       ),
     );
@@ -234,8 +234,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     emit(state.copyWith(
       status: AuthStatus.loading,
-      clearError: true,
-      clearSuccess: true,
+      errorMessage: null,
+      successMessage: null,
     ));
 
     final result = await updatePassword(
@@ -258,8 +258,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             status: AuthStatus.passwordUpdated,
             successMessage:
                 'Password berhasil diperbarui. Silakan login kembali.',
-            clearUser: true,
-            clearError: true,
+            user: null,
+            errorMessage: null,
           ),
         );
       },
@@ -275,8 +275,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(
       state.copyWith(
         status: AuthStatus.unauthenticated,
-        clearUser: true,
-        clearError: true,
+        user: null,
+        errorMessage: null,
       ),
     );
   }

@@ -1,16 +1,13 @@
-import 'package:equatable/equatable.dart';
+import 'package:freezed_annotation/freezed_annotation.dart';
 import 'user_entity.dart';
 
-/// Domain entity representing the result of an email sign up operation
-class AuthSignUpResult extends Equatable {
-  final UserEntity user;
-  final bool needsEmailVerification;
+part 'auth_signup_result.freezed.dart';
 
-  const AuthSignUpResult({
-    required this.user,
-    required this.needsEmailVerification,
-  });
-
-  @override
-  List<Object?> get props => [user, needsEmailVerification];
+/// Result entity returned when registering a new account
+@freezed
+abstract class AuthSignUpResult with _$AuthSignUpResult {
+  const factory AuthSignUpResult({
+    required UserEntity? user,
+    required bool needsEmailVerification,
+  }) = _AuthSignUpResult;
 }
