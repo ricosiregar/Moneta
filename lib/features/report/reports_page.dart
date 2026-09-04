@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
+import '../../core/theme/app_colors.dart';
 
 class ReportsScreen extends StatelessWidget {
   const ReportsScreen({super.key});
@@ -68,10 +68,7 @@ class ReportsScreen extends StatelessWidget {
                     const SizedBox(height: 8),
                     const Text(
                       "65% anggaran terpakai dari total Rp 8.000.000",
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF8E8E93),
-                      ),
+                      style: TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
                     ),
                   ],
                 ),

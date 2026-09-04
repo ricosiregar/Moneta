@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_colors.dart';
+import '../../core/theme/app_colors.dart';
 
 class TransactionsScreen extends StatelessWidget {
   const TransactionsScreen({super.key});
@@ -31,10 +31,7 @@ class TransactionsScreen extends StatelessWidget {
                       color: Colors.white,
                       shape: BoxShape.circle,
                       boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x0A000000),
-                          blurRadius: 10,
-                        ),
+                        BoxShadow(color: Color(0x0A000000), blurRadius: 10),
                       ],
                     ),
                     child: IconButton(
@@ -167,7 +164,9 @@ class TransactionsScreen extends StatelessWidget {
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,
-              color: isExpense ? const Color(0xFF2B5B84) : const Color(0xFF52B788),
+              color: isExpense
+                  ? const Color(0xFF2B5B84)
+                  : const Color(0xFF52B788),
             ),
           ),
         ],

@@ -6,8 +6,8 @@ import 'cubit/bottom_nav_cubit.dart';
 import '../analytic/analytics_page.dart';
 import '../home/presentation/pages/home_page.dart';
 import '../profile/profile_page.dart';
-import '../home/presentation/pages/reports_page.dart';
-import '../home/presentation/pages/transactions_page.dart';
+import '../report/reports_page.dart';
+import '../transactions/transactions_page.dart';
 
 /// MainPage mengelola persistent Bottom Navigation Bar menggunakan
 /// pendekatan IndexedStack + BottomNavCubit.
