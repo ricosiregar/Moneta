@@ -1,12 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme/app_colors.dart';
 import '../auth/presentation/bloc/auth_bloc.dart';
 import '../auth/presentation/bloc/auth_event.dart';
 import '../auth/presentation/bloc/auth_state.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  String _cachedName = '';
+  String _cachedEmail = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCachedData();
+  }
+
+  /// Baca nama & email dari SharedPreferences (cache offline)
+  Future<void> _loadCachedData() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _cachedName = prefs.getString('user_name') ?? '';
+        _cachedEmail = prefs.getString('saved_email') ?? '';
+      });
+    }
+  }
 
   void _showLogoutDialog(BuildContext context) {
     showDialog(
@@ -63,27 +89,46 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AuthBloc, AuthState>(
-      builder: (context, state) {
-        final user = state.user;
-        final String fullName = user?.fullName ?? '';
-        final String email = user?.email ?? '';
-        final String name = fullName.isNotEmpty
-            ? fullName
-            : (email.contains('@')
-                  ? email.split('@').first
-                  : "Pengguna Moneta");
-        final String initial = name.isNotEmpty
-            ? name.substring(0, 1).toUpperCase()
-            : "M";
-        final String displayEmail = email.isNotEmpty
-            ? email
-            : "Belum terhubung";
+    return BlocListener<AuthBloc, AuthState>(
+      // Sinkronisasi cache lokal saat AuthBloc update user
+      listenWhen: (prev, curr) =>
+          prev.user?.fullName != curr.user?.fullName ||
+          prev.user?.email != curr.user?.email,
+      listener: (context, state) {
+        final name = state.user?.fullName ?? '';
+        final email = state.user?.email ?? '';
+        if (mounted) {
+          setState(() {
+            if (name.isNotEmpty) _cachedName = name;
+            if (email.isNotEmpty) _cachedEmail = email;
+          });
+        }
+      },
+      child: BlocBuilder<AuthBloc, AuthState>(
+        builder: (context, state) {
+          // Prioritas: AuthBloc (online) → SharedPreferences (offline cache)
+          final String fullName = state.user?.fullName?.isNotEmpty == true
+              ? state.user!.fullName!
+              : _cachedName;
+          final String email = (state.user?.email ?? '').isNotEmpty
+              ? state.user!.email
+              : _cachedEmail;
+          final String name = fullName.isNotEmpty
+              ? fullName
+              : (email.contains('@')
+                    ? email.split('@').first
+                    : "Pengguna Moneta");
+          final String initial = name.isNotEmpty
+              ? name.substring(0, 1).toUpperCase()
+              : "M";
+          final String displayEmail = email.isNotEmpty
+              ? email
+              : "Belum terhubung";
 
-        return Scaffold(
-          backgroundColor: AppColors.bgOffWhite,
-          body: SingleChildScrollView(
-            child: Column(
+          return Scaffold(
+            backgroundColor: AppColors.bgOffWhite,
+            body: SingleChildScrollView(
+              child: Column(
               children: [
                 // Top Header with Yellow Gradient
                 Container(
@@ -242,7 +287,8 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
         );
-      },
+        },
+      ),
     );
   }
 

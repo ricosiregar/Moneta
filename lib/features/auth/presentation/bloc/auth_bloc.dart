@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/storage/local_storage.dart';
 import '../../../../core/utils/usecase.dart';
 import '../../domain/entities/auth_state_entity.dart';
+import '../../domain/entities/user_entity.dart';
 import '../../domain/usecases/auth_usecases.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
@@ -15,6 +17,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final UpdatePasswordUseCase updatePassword;
   final SignOutUseCase signOut;
   final GetCurrentUserUseCase getCurrentUser;
+  final AppLocalStorage localStorage;
 
   StreamSubscription? _authStateSubscription;
 
@@ -27,6 +30,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required this.updatePassword,
     required this.signOut,
     required this.getCurrentUser,
+    required this.localStorage,
   }) : super(const AuthState()) {
     on<AuthSubscriptionRequested>(_onAuthSubscriptionRequested);
     on<AuthUserChanged>(_onAuthUserChanged);
@@ -44,18 +48,30 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     // 1. Initial active session check
     final initialUserResult = await getCurrentUser(const NoParams());
+
+    // Ekstrak user di luar fold agar bisa await secara sequential
+    UserEntity? initialUser;
     initialUserResult.fold(
-      (_) => emit(
-        state.copyWith(status: AuthStatus.unauthenticated, user: null),
-      ),
-      (user) => emit(
+      (_) => initialUser = null,
+      (user) => initialUser = user,
+    );
+
+    if (initialUser != null) {
+      // Simpan nama ke SharedPreferences agar tersedia offline
+      final name = initialUser!.fullName;
+      if (name != null && name.isNotEmpty) {
+        await localStorage.saveUserName(name);
+      }
+      emit(
         state.copyWith(
           status: AuthStatus.authenticated,
-          user: user,
+          user: initialUser,
           errorMessage: null,
         ),
-      ),
-    );
+      );
+    } else {
+      emit(state.copyWith(status: AuthStatus.unauthenticated, user: null));
+    }
 
     // 2. Cancel previous subscription if any
     await _authStateSubscription?.cancel();
@@ -76,10 +92,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         ),
       );
     } else if (event.authStateEntity.user != null) {
+      final user = event.authStateEntity.user!;
+      // Simpan nama ke SharedPreferences agar tersedia offline
+      final name = user.fullName;
+      if (name != null && name.isNotEmpty) {
+        localStorage.saveUserName(name);
+      }
       emit(
         state.copyWith(
           status: AuthStatus.authenticated,
-          user: event.authStateEntity.user,
+          user: user,
           errorMessage: null,
         ),
       );
@@ -105,13 +127,19 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           errorMessage: failure.message,
         ),
       ),
-      (user) => emit(
-        state.copyWith(
-          status: AuthStatus.authenticated,
-          user: user,
-          errorMessage: null,
-        ),
-      ),
+      (user) async {
+        // Simpan nama user ke SharedPreferences
+        if (user.fullName != null && user.fullName!.isNotEmpty) {
+          await localStorage.saveUserName(user.fullName!);
+        }
+        emit(
+          state.copyWith(
+            status: AuthStatus.authenticated,
+            user: user,
+            errorMessage: null,
+          ),
+        );
+      },
     );
   }
 
@@ -136,7 +164,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           errorMessage: failure.message,
         ),
       ),
-      (signUpResult) {
+      (signUpResult) async {
+        // Simpan nama user ke SharedPreferences
+        final fullName = signUpResult.user?.fullName;
+        if (fullName != null && fullName.isNotEmpty) {
+          await localStorage.saveUserName(fullName);
+        }
         if (signUpResult.needsEmailVerification) {
           emit(
             state.copyWith(
@@ -272,6 +305,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     emit(state.copyWith(status: AuthStatus.loading));
     await signOut(const NoParams());
+    // Hapus nama user dari SharedPreferences saat logout
+    await localStorage.clearUserName();
     emit(
       state.copyWith(
         status: AuthStatus.unauthenticated,

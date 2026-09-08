@@ -8,6 +8,10 @@ import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/domain/usecases/auth_usecases.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
+import '../../features/home/data/datasources/home_remote_datasource.dart';
+import '../../features/home/data/repositories/home_repository.dart';
+import '../../features/home/data/repositories/home_repository_impl.dart';
+import '../../features/home/presentation/cubit/home_cubit.dart';
 import '../storage/local_storage.dart';
 
 final GetIt getIt = GetIt.instance;
@@ -92,8 +96,26 @@ Future<void> configureDependencies() async {
         updatePassword: getIt<UpdatePasswordUseCase>(),
         signOut: getIt<SignOutUseCase>(),
         getCurrentUser: getIt<GetCurrentUserUseCase>(),
+        localStorage: getIt<AppLocalStorage>(),
       ),
     );
+  }
+
+  // 5. Home Data Layer
+  if (!getIt.isRegistered<HomeRemoteDataSource>()) {
+    getIt.registerLazySingleton<HomeRemoteDataSource>(
+      () => HomeRemoteDataSourceImpl(supabase: getIt<SupabaseClient>()),
+    );
+  }
+  if (!getIt.isRegistered<HomeRepository>()) {
+    getIt.registerLazySingleton<HomeRepository>(
+      () => HomeRepositoryImpl(remoteDataSource: getIt<HomeRemoteDataSource>()),
+    );
+  }
+
+  // 6. Home Presentation Cubit
+  if (!getIt.isRegistered<HomeCubit>()) {
+    getIt.registerFactory<HomeCubit>(() => HomeCubit(getIt<HomeRepository>()));
   }
 }
 

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../core/di/injection.dart';
 import '../../core/theme/app_colors.dart';
 import 'cubit/bottom_nav_cubit.dart';
 import '../analytic/analytics_page.dart';
+import '../home/presentation/cubit/home_cubit.dart';
 import '../home/presentation/pages/home_page.dart';
 import '../profile/profile_page.dart';
 import '../report/reports_page.dart';
@@ -62,7 +64,9 @@ class _MainPageState extends State<MainPage> {
               SystemNavigator.pop();
             }
           },
-          child: Scaffold(
+          child: BlocProvider<HomeCubit>(
+            create: (_) => getIt<HomeCubit>(),
+            child: Scaffold(
             backgroundColor: AppColors.bgOffWhite,
             body: IndexedStack(
               index: navState.currentIndex,
@@ -88,6 +92,7 @@ class _MainPageState extends State<MainPage> {
               ],
             ),
             bottomNavigationBar: _buildBottomNav(navState.currentIndex),
+          ),
           ),
         );
       },

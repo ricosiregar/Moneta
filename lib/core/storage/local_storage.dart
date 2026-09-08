@@ -28,6 +28,15 @@ abstract class AppLocalStorage {
 
   /// Clear saved email and password
   Future<void> clearSavedCredentials();
+
+  /// Save logged-in user's display name
+  Future<void> saveUserName(String name);
+
+  /// Retrieve saved user's display name
+  String? getUserName();
+
+  /// Clear saved user name
+  Future<void> clearUserName();
 }
 
 class AppLocalStorageImpl implements AppLocalStorage {
@@ -36,6 +45,7 @@ class AppLocalStorageImpl implements AppLocalStorage {
   static const String _keySavedEmail = 'saved_email';
   static const String _keySavedPassword = 'saved_password';
   static const String _keyRememberMe = 'remember_me';
+  static const String _keyUserName = 'user_name';
 
   AppLocalStorageImpl({required this.sharedPreferences});
 
@@ -77,5 +87,20 @@ class AppLocalStorageImpl implements AppLocalStorage {
     await sharedPreferences.remove(_keySavedEmail);
     await sharedPreferences.remove(_keySavedPassword);
     await sharedPreferences.setBool(_keyRememberMe, false);
+  }
+
+  @override
+  Future<void> saveUserName(String name) async {
+    await sharedPreferences.setString(_keyUserName, name);
+  }
+
+  @override
+  String? getUserName() {
+    return sharedPreferences.getString(_keyUserName);
+  }
+
+  @override
+  Future<void> clearUserName() async {
+    await sharedPreferences.remove(_keyUserName);
   }
 }
