@@ -35,12 +35,12 @@ class AuthTextField extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textDark,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: AppColors.inkPrimary,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         TextFormField(
           controller: controller,
           obscureText: isPassword && !isPasswordVisible,
@@ -48,20 +48,20 @@ class AuthTextField extends StatelessWidget {
           textInputAction: textInputAction,
           validator: validator,
           style: const TextStyle(
-            fontSize: 15,
+            fontSize: 14,
             fontWeight: FontWeight.w500,
-            color: AppColors.textDark,
+            color: AppColors.inkPrimary,
           ),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: const TextStyle(
-              fontSize: 14,
-              color: Color(0xFFA0A0A5),
+              fontSize: 13,
+              color: AppColors.inkMuted,
             ),
             prefixIcon: Icon(
               prefixIcon,
-              color: AppColors.textDark.withOpacity(0.6),
-              size: 20,
+              color: AppColors.inkSecondary,
+              size: 18,
             ),
             suffixIcon: isPassword
                 ? IconButton(
@@ -69,44 +69,44 @@ class AuthTextField extends StatelessWidget {
                       isPasswordVisible
                           ? Icons.visibility_outlined
                           : Icons.visibility_off_outlined,
-                      color: AppColors.textDark.withOpacity(0.6),
-                      size: 20,
+                      color: AppColors.inkSecondary,
+                      size: 18,
                     ),
                     onPressed: onToggleVisibility,
                   )
                 : null,
             filled: true,
-            fillColor: Colors.white,
+            fillColor: Colors.white.withValues(alpha: 0.75),
             contentPadding: const EdgeInsets.symmetric(
-              horizontal: 18,
-              vertical: 16,
+              horizontal: 16,
+              vertical: 14,
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(
-                color: Colors.grey.shade300,
+              borderSide: const BorderSide(
+                color: AppColors.glassBorder,
                 width: 1.2,
               ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: const BorderSide(
-                color: AppColors.accentExpense, // Denim Blue focus
-                width: 2,
+                color: AppColors.accentBlue,
+                width: 1.5,
               ),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: const BorderSide(
-                color: Color(0xFFE63946),
+                color: AppColors.expense,
                 width: 1.2,
               ),
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: const BorderSide(
-                color: Color(0xFFE63946),
-                width: 2,
+                color: AppColors.expense,
+                width: 1.5,
               ),
             ),
           ),

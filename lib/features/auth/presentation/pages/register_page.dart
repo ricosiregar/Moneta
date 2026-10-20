@@ -1,6 +1,8 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/components/components.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
@@ -50,66 +52,41 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   void _showVerificationDialog(String email) {
-    showDialog(
+    AppGlassDialog.show(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
+      showCancel: false,
+      title: "Verifikasi Email Dikirim!",
+      message:
+          "Kami telah mengirimkan tautan konfirmasi ke:\n$email\n\nSilakan periksa kotak masuk atau spam email Anda dan klik tautan untuk mengaktifkan akun.",
+      confirmLabel: "Masuk ke Akun",
+      isDestructive: false,
+      customIcon: Container(
+        width: 60,
+        height: 60,
+        decoration: BoxDecoration(
+          gradient: AppColors.auroraHeaderGradient,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white,
+            width: 1.5,
           ),
-          backgroundColor: Colors.white,
-          elevation: 8,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: const BoxDecoration(
-                    gradient: AppColors.yellowGradient,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.mark_email_read_rounded,
-                    size: 38,
-                    color: AppColors.textDark,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  "Verifikasi Email Dikirim!",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  "Kami telah mengirimkan tautan konfirmasi ke:\n$email\n\nSilakan periksa kotak masuk atau spam email Anda dan klik tautan untuk mengaktifkan akun.",
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF636366),
-                    height: 1.45,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                PrimaryGradientButton(
-                  text: "Masuk ke Akun",
-                  onPressed: () {
-                    Navigator.of(dialogContext).pop();
-                    context.go('/login');
-                  },
-                ),
-              ],
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x150F172A),
+              blurRadius: 12,
+              offset: Offset(0, 4),
             ),
-          ),
-        );
+          ],
+        ),
+        child: const Icon(
+          Icons.mark_email_read_rounded,
+          size: 32,
+          color: AppColors.inkPrimary,
+        ),
+      ),
+      onConfirm: () {
+        context.go('/login');
       },
     );
   }
@@ -119,19 +96,7 @@ class _RegisterPageState extends State<RegisterPage> {
     return BlocConsumer<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state.status == AuthStatus.failure && state.errorMessage != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                state.errorMessage!,
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
-              backgroundColor: const Color(0xFFE63946),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          );
+          AppToast.showError(context, state.errorMessage);
         } else if (state.status == AuthStatus.registeredNeedsVerification) {
           final email = state.unverifiedEmail ?? _emailController.text.trim();
           _showVerificationDialog(email);
@@ -143,13 +108,13 @@ class _RegisterPageState extends State<RegisterPage> {
         return Scaffold(
           body: Container(
             decoration: const BoxDecoration(
-              gradient: AppColors.yellowGradient,
+              gradient: AppColors.auroraHeaderGradient,
             ),
             child: SafeArea(
               bottom: false,
               child: Column(
                 children: [
-                  // TOP SECTION (Yellow Gradient Header with Back Button)
+                  // TOP SECTION (Aurora Gradient Header with Back Button)
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 20.0,
@@ -158,15 +123,26 @@ class _RegisterPageState extends State<RegisterPage> {
                     child: Row(
                       children: [
                         Container(
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.85),
                             shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 1.5,
+                            ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x120F172A),
+                                blurRadius: 10,
+                                offset: Offset(0, 3),
+                              ),
+                            ],
                           ),
                           child: IconButton(
                             icon: const Icon(
                               Icons.arrow_back_ios_new_rounded,
-                              color: AppColors.textDark,
-                              size: 20,
+                              color: AppColors.inkPrimary,
+                              size: 18,
                             ),
                             onPressed: () {
                               if (context.canPop()) {
@@ -185,17 +161,18 @@ class _RegisterPageState extends State<RegisterPage> {
                               "Buat Akun Baru",
                               style: TextStyle(
                                 fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textDark,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.inkPrimary,
+                                letterSpacing: -0.3,
                               ),
                             ),
                             SizedBox(height: 2),
                             Text(
-                              "Kelola finansial cerdas bersama Moneta",
+                              "Kelola finansial cerdas bersama MonTrack",
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
-                                color: AppColors.textDark,
+                                color: AppColors.inkSecondary,
                               ),
                             ),
                           ],
@@ -204,16 +181,33 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                   ),
 
-                  // BOTTOM SECTION (Rounded Off-White Container)
+                  // BOTTOM SECTION (Frosted Glass Platter)
                   Expanded(
                     child: Container(
                       width: double.infinity,
-                      decoration: const BoxDecoration(
-                        color: AppColors.bgOffWhite,
-                        borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(40),
+                      decoration: BoxDecoration(
+                        gradient: AppColors.glassSheetGradient,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(36),
                         ),
+                        border: Border.all(
+                          color: AppColors.glassBorder,
+                          width: 1.5,
+                        ),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x140F172A),
+                            blurRadius: 28,
+                            offset: Offset(0, -6),
+                          ),
+                        ],
                       ),
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(36),
+                        ),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 24.0,
@@ -342,7 +336,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                     "Sudah punya akun? ",
                                     style: TextStyle(
                                       fontSize: 14,
-                                      color: Color(0xFF636366),
+                                      color: AppColors.inkSecondary,
                                     ),
                                   ),
                                   GestureDetector(
@@ -354,7 +348,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                       style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.bold,
-                                        color: AppColors.accentExpense, // Denim Blue
+                                        color: AppColors.accentBlue,
                                       ),
                                     ),
                                   ),
@@ -366,6 +360,8 @@ class _RegisterPageState extends State<RegisterPage> {
                       ),
                     ),
                   ),
+                ),
+              ),
                 ],
               ),
             ),

@@ -28,7 +28,7 @@ class _SplashPageState extends State<SplashPage> {
         width: double.infinity,
         height: double.infinity,
         decoration: const BoxDecoration(
-          gradient: AppColors.yellowGradient,
+          gradient: AppColors.auroraHeaderGradient,
         ),
         child: SafeArea(
           child: Column(
@@ -36,49 +36,48 @@ class _SplashPageState extends State<SplashPage> {
             children: [
               const Spacer(),
 
-              // Logo Icon
+              // Logo Icon with Aurora Glass Pedestal
               Container(
-                width: 90,
-                height: 90,
+                width: 96,
+                height: 96,
                 decoration: BoxDecoration(
-                  color: AppColors.textDark,
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.15),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
+                  gradient: AppColors.glassCardGradient,
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(
+                    color: AppColors.glassBorder,
+                    width: 1.5,
+                  ),
+                  boxShadow: AppColors.glassShadowSoft,
                 ),
-                child: const Icon(
-                  Icons.account_balance_wallet_rounded,
-                  color: AppColors.primaryYellow,
-                  size: 46,
+                child: const Center(
+                  child: Icon(
+                    Icons.account_balance_wallet_rounded,
+                    color: AppColors.accentBlue,
+                    size: 46,
+                  ),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
               // Brand Title
               const Text(
-                "MONETA",
+                "Moneta",
                 style: TextStyle(
                   fontSize: 32,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 4,
-                  color: AppColors.textDark,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                  color: AppColors.inkPrimary,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
 
               // Tagline
               const Text(
-                "Smart Finance & AI Insights",
+                "Smart Personal Finance",
                 style: TextStyle(
                   fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textDark,
-                  letterSpacing: 0.5,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.inkSecondary,
                 ),
               ),
 
@@ -86,11 +85,11 @@ class _SplashPageState extends State<SplashPage> {
 
               // Loading Spinner
               const SizedBox(
-                width: 28,
-                height: 28,
+                width: 24,
+                height: 24,
                 child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  color: AppColors.textDark,
+                  strokeWidth: 2.5,
+                  color: AppColors.accentBlue,
                 ),
               ),
               const SizedBox(height: 40),

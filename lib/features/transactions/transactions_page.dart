@@ -1,8 +1,46 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
+import '../../core/components/app_glass_dialog.dart';
+import '../../core/components/app_toast.dart';
+import '../../core/components/category_icons.dart';
+import '../../core/components/fun_widgets.dart';
+import '../../core/database/finance_repository.dart';
+import '../../core/database/wallet_repository.dart';
+import '../../core/di/injection.dart';
 import '../../core/theme/app_colors.dart';
-import '../home/data/models/transaction_model.dart';
-import '../home/presentation/cubit/home_cubit.dart';
+import '../categories/categories_manage_page.dart';
+
+// Daftar aktivitas dari database lokal (Drift).
+
+class _Tx {
+  final String group;
+  final String title;
+  final String category;
+  final String wallet;
+  final double amount; // negative = expense
+  final IconData icon;
+  final bool transfer;
+  final String id;
+  final DateTime date;
+  final String? walletId;
+  final String? toWalletId;
+  final String? categoryId;
+  const _Tx(
+    this.group,
+    this.title,
+    this.category,
+    this.wallet,
+    this.amount,
+    this.icon, {
+    this.transfer = false,
+    this.id = '',
+    required this.date,
+    this.walletId,
+    this.toWalletId,
+    this.categoryId,
+  });
+}
 
 class TransactionsScreen extends StatefulWidget {
   const TransactionsScreen({super.key});
@@ -12,341 +50,1008 @@ class TransactionsScreen extends StatefulWidget {
 }
 
 class _TransactionsScreenState extends State<TransactionsScreen> {
+  int _type = 0; // 0 semua, 1 pengeluaran, 2 pemasukan, 3 pindah
+  bool _filterOpen = false;
+  String _query = '';
+  String? _selectedWalletId;
+  String? _selectedCategory;
+  String? _selectedCategoryId;
+
+  static const int _pageSize = 15;
+  int _visibleCount = _pageSize;
+  bool _isLoadingMore = false;
+  late final ScrollController _scrollController;
+
+  static DateTime get _today {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  late DateTime _startDate;
+  late DateTime _endDate;
+
+  Timer? _debounceTimer;
+  late final TextEditingController _searchCtrl;
+
+  static const _tabs = ['Semua', 'Pengeluaran', 'Pemasukan', 'Pindah Uang'];
+
+  List<_Tx> _txs = const [];
+  List<WalletView> _wallets = const [];
+  List<CategoryView> _categories = const [];
+
+  StreamSubscription<List<FeedItem>>? _sub;
+  StreamSubscription<List<WalletView>>? _walletSub;
+  StreamSubscription<List<CategoryView>>? _catSub;
+
   @override
   void initState() {
     super.initState();
-    context.read<HomeCubit>().loadDashboard();
-  }
+    _searchCtrl = TextEditingController();
+    _scrollController = ScrollController()..addListener(_onScroll);
+    _endDate = _today;
+    _startDate = _today;
 
-  static String _fmtRupiah(double amount) {
-    final raw = amount.abs().toStringAsFixed(0);
-    final buf = StringBuffer();
-    for (int i = 0; i < raw.length; i++) {
-      if (i > 0 && (raw.length - i) % 3 == 0) buf.write('.');
-      buf.write(raw[i]);
-    }
-    return 'Rp $buf';
+    _sub = getIt<FinanceRepository>().watchFeed().listen((items) {
+      if (!mounted) return;
+      setState(() => _txs = [for (final i in items) _fromFeed(i)]);
+    });
+    _walletSub = getIt<WalletRepository>().watchWallets().listen((wallets) {
+      if (!mounted) return;
+      setState(() => _wallets = wallets);
+    });
+    _catSub = getIt<FinanceRepository>().watchCategories().listen((categories) {
+      if (!mounted) return;
+      setState(() => _categories = categories);
+    });
   }
 
   @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    _searchCtrl.dispose();
+    _scrollController.dispose();
+    _sub?.cancel();
+    _walletSub?.cancel();
+    _catSub?.cancel();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.hasClients &&
+        _scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 200 &&
+        !_isLoadingMore &&
+        _visibleCount < _filtered.length) {
+      _loadMore();
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoadingMore || _visibleCount >= _filtered.length) return;
+    setState(() => _isLoadingMore = true);
+    await Future.delayed(const Duration(milliseconds: 350));
+    if (!mounted) return;
+    setState(() {
+      _visibleCount = (_visibleCount + _pageSize).clamp(0, _filtered.length);
+      _isLoadingMore = false;
+    });
+  }
+
+  void _onSearchChanged(String v) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        setState(() {
+          _query = v.trim();
+          _visibleCount = _pageSize;
+        });
+      }
+    });
+  }
+
+  void _clearSearch() {
+    _debounceTimer?.cancel();
+    _searchCtrl.clear();
+    setState(() {
+      _query = '';
+      _visibleCount = _pageSize;
+    });
+  }
+
+  void _clearAllFilters() {
+    _debounceTimer?.cancel();
+    _searchCtrl.clear();
+    setState(() {
+      _type = 0;
+      _query = '';
+      _selectedWalletId = null;
+      _selectedCategory = null;
+      _selectedCategoryId = null;
+      _applyToday();
+      _visibleCount = _pageSize;
+    });
+  }
+
+  Future<void> _openManageCategories() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CategoriesManagePage(
+          initialTab: _type == 2 ? 1 : 0,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickDateRange() async {
+    final today = _today;
+    final firstAllowed = DateTime(2020);
+    final lastAllowed = today;
+
+    final initial = DateTimeRange(
+      start: _startDate.isAfter(today) ? today : _startDate,
+      end: _endDate.isAfter(today) ? today : _endDate,
+    );
+
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: firstAllowed,
+      lastDate: lastAllowed,
+      initialDateRange: initial,
+      helpText: 'Pilih Rentang Tanggal (Maks 1 Bulan & s/d Hari ini)',
+      confirmText: 'Terapkan',
+      cancelText: 'Batal',
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.accentBlue,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: AppColors.inkPrimary,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      final diff = picked.end.difference(picked.start).inDays;
+      if (diff > 31) {
+        if (mounted) {
+          AppToast.showWarning(
+            context,
+            'Rentang tanggal maksimal 1 bulan (31 hari)',
+          );
+        }
+        return;
+      }
+      setState(() {
+        _startDate = picked.start;
+        _endDate = picked.end.isAfter(today) ? today : picked.end;
+        _visibleCount = _pageSize;
+      });
+    }
+  }
+
+  void _applyToday() {
+    final today = _today;
+    setState(() {
+      _startDate = today;
+      _endDate = today;
+      _visibleCount = _pageSize;
+    });
+  }
+
+  void _applyPresetDays(int days) {
+    final today = _today;
+    setState(() {
+      _startDate = today.subtract(Duration(days: days - 1));
+      _endDate = today;
+      _visibleCount = _pageSize;
+    });
+  }
+
+  bool get _isToday {
+    final today = _today;
+    return _startDate.year == today.year &&
+        _startDate.month == today.month &&
+        _startDate.day == today.day &&
+        _endDate.year == today.year &&
+        _endDate.month == today.month &&
+        _endDate.day == today.day;
+  }
+
+  bool _isPresetDays(int days) {
+    final today = _today;
+    final expectedStart = today.subtract(Duration(days: days - 1));
+    return _startDate.year == expectedStart.year &&
+        _startDate.month == expectedStart.month &&
+        _startDate.day == expectedStart.day &&
+        _endDate.year == today.year &&
+        _endDate.month == today.month &&
+        _endDate.day == today.day;
+  }
+
+  bool get _isCustomDateRange => !_isToday;
+
+  void _resetDateRange() {
+    _applyToday();
+  }
+
+  String get _dateRangeString {
+    final f = DateFormat('d MMM yyyy', 'id_ID');
+    if (_isToday) {
+      return 'Hari Ini (${f.format(_today)})';
+    }
+    if (_startDate.year == _endDate.year &&
+        _startDate.month == _endDate.month &&
+        _startDate.day == _endDate.day) {
+      return f.format(_startDate);
+    }
+    return '${f.format(_startDate)} - ${f.format(_endDate)}';
+  }
+
+  bool get _hasFilterPills =>
+      _selectedWalletId != null ||
+      _selectedCategory != null ||
+      _isCustomDateRange;
+
+  bool get _hasAnyFilter => _hasFilterPills || _query.isNotEmpty || _type != 0;
+
+  static String _groupLabel(DateTime d) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(d.year, d.month, d.day);
+    final diff = today.difference(day).inDays;
+    if (diff == 0) return 'Hari ini';
+    if (diff == 1) return 'Kemarin';
+    return DateFormat('EEEE, d MMM', 'id_ID').format(d);
+  }
+
+  static _Tx _fromFeed(FeedItem i) {
+    final transfer = i.kind == 'transfer';
+    return _Tx(
+      _groupLabel(i.date),
+      i.title,
+      i.category,
+      i.wallet,
+      i.kind == 'expense' ? -i.amount : i.amount,
+      categoryIcon(i.iconKey),
+      transfer: transfer,
+      id: i.id,
+      date: i.date,
+      walletId: i.walletId,
+      toWalletId: i.toWalletId,
+      categoryId: i.categoryId,
+    );
+  }
+
+  List<_Tx> get _filtered => _txs.where((t) {
+    final okType = switch (_type) {
+      1 => !t.transfer && t.amount < 0,
+      2 => !t.transfer && t.amount > 0,
+      3 => t.transfer,
+      _ => true,
+    };
+    final okWallet =
+        _selectedWalletId == null ||
+        t.walletId == _selectedWalletId ||
+        t.toWalletId == _selectedWalletId;
+    final okCategory =
+        _selectedCategory == null ||
+        t.category.toLowerCase() == _selectedCategory!.toLowerCase() ||
+        (t.categoryId != null && t.categoryId == _selectedCategoryId);
+
+    final startDay = DateTime(
+      _startDate.year,
+      _startDate.month,
+      _startDate.day,
+    );
+    final endDay = DateTime(
+      _endDate.year,
+      _endDate.month,
+      _endDate.day,
+      23,
+      59,
+      59,
+    );
+    final okDate = !t.date.isBefore(startDay) && !t.date.isAfter(endDay);
+
+    final q = _query.toLowerCase();
+    final okQ =
+        q.isEmpty ||
+        t.title.toLowerCase().contains(q) ||
+        t.category.toLowerCase().contains(q) ||
+        t.wallet.toLowerCase().contains(q);
+    return okType && okWallet && okCategory && okDate && okQ;
+  }).toList();
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.bgOffWhite,
-      body: SafeArea(
-        child: BlocBuilder<HomeCubit, HomeState>(
-          builder: (context, state) {
-            return RefreshIndicator(
-              onRefresh: () => context.read<HomeCubit>().refresh(),
-              color: AppColors.deepOrange,
-              child: CustomScrollView(
-                slivers: [
-                  // ── Header ───────────────────────────────────────────────
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Riwayat Transaksi',
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textDark,
+    final allList = _filtered;
+    final pagedList = allList.take(_visibleCount).toList();
+
+    final groups = <String, List<_Tx>>{};
+    for (final t in pagedList) {
+      groups.putIfAbsent(t.group, () => []).add(t);
+    }
+
+    final rawCats = _type == 1
+        ? _categories.where((c) => c.type == 'expense').toList()
+        : _type == 2
+        ? _categories.where((c) => c.type == 'income').toList()
+        : _categories;
+
+    final seenCats = <String>{};
+    final displayCats = <CategoryView>[];
+    for (final c in rawCats) {
+      if (seenCats.add(c.name.toLowerCase())) {
+        displayCats.add(c);
+      }
+    }
+
+    return GlassPage(
+      bottom: false,
+      child: RefreshIndicator(
+        onRefresh: () async {
+          setState(() {
+            _visibleCount = _pageSize;
+          });
+          await Future.delayed(const Duration(milliseconds: 300));
+        },
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 180),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            FunPageHeader(
+              title: 'Aktivitas',
+              subtitle: allList.isEmpty
+                  ? '0 transaksi tercatat'
+                  : 'Menampilkan ${pagedList.length} dari ${allList.length} transaksi',
+              trailing: FunPill(
+                label: _hasFilterPills
+                    ? 'Filter Aktif'
+                    : (_filterOpen ? 'Tutup Filter' : 'Filter'),
+                icon: Icons.tune_rounded,
+                selected: _filterOpen || _hasFilterPills,
+                onTap: () => setState(() => _filterOpen = !_filterOpen),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                gradient: AppColors.glassCardGradient,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: AppColors.glassBorder,
+                  width: 1.2,
+                ),
+                boxShadow: AppColors.glassShadowSoft,
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.search_rounded,
+                    size: 18,
+                    color: AppColors.inkMuted,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: _searchCtrl,
+                      onChanged: _onSearchChanged,
+                      onSubmitted: (v) {
+                        _debounceTimer?.cancel();
+                        setState(() {
+                          _query = v.trim();
+                          _visibleCount = _pageSize;
+                        });
+                      },
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppColors.inkPrimary,
+                      ),
+                      decoration: const InputDecoration(
+                        hintText: 'Cari catatan, kategori, atau dompet...',
+                        hintStyle: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.inkMuted,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  if (_searchCtrl.text.isNotEmpty)
+                    GestureDetector(
+                      onTap: _clearSearch,
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: 18,
+                          color: AppColors.inkMuted,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              clipBehavior: Clip.none,
+              child: Row(
+                children: [
+                  for (int i = 0; i < _tabs.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 8),
+                    FunPill(
+                      label: _tabs[i],
+                      selected: _type == i,
+                      onTap: () => setState(() {
+                        _type = i;
+                        _visibleCount = _pageSize;
+                        if (_selectedCategory != null) {
+                          final valid =
+                              i == 0 ||
+                              (i == 1 &&
+                                  _categories.any(
+                                    (c) =>
+                                        c.name == _selectedCategory &&
+                                        c.type == 'expense',
+                                  )) ||
+                              (i == 2 &&
+                                  _categories.any(
+                                    (c) =>
+                                        c.name == _selectedCategory &&
+                                        c.type == 'income',
+                                  ));
+                          if (!valid) {
+                            _selectedCategory = null;
+                            _selectedCategoryId = null;
+                          }
+                        }
+                      }),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (_filterOpen) ...[
+              const SizedBox(height: 12),
+              FunCard(
+                clipBehavior: Clip.antiAlias,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── 1. Filter Dompet (Pertama) ──
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const FunLabel('Dompet / Rekening'),
+                        if (_selectedWalletId != null)
+                          GestureDetector(
+                            onTap: () => setState(() {
+                              _selectedWalletId = null;
+                              _visibleCount = _pageSize;
+                            }),
+                            child: const Text(
+                              'Reset',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.accentBlue,
+                              ),
                             ),
                           ),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: const [
-                                BoxShadow(
-                                    color: Color(0x0A000000), blurRadius: 10),
-                              ],
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        children: [
+                          FunPill(
+                            label: 'Semua Dompet',
+                            icon: Icons.all_inclusive_rounded,
+                            selected: _selectedWalletId == null,
+                            onTap: () => setState(() {
+                              _selectedWalletId = null;
+                              _visibleCount = _pageSize;
+                            }),
+                          ),
+                          for (final w in _wallets) ...[
+                            const SizedBox(width: 8),
+                            FunPill(
+                              label: w.name,
+                              icon: switch (w.type) {
+                                'bank' => Icons.account_balance_outlined,
+                                'e_wallet' =>
+                                  Icons.account_balance_wallet_outlined,
+                                _ => Icons.payments_outlined,
+                              },
+                              selected: _selectedWalletId == w.id,
+                              onTap: () => setState(() {
+                                _selectedWalletId = _selectedWalletId == w.id
+                                    ? null
+                                    : w.id;
+                                _visibleCount = _pageSize;
+                              }),
                             ),
-                            child: IconButton(
-                              icon: const Icon(
-                                Icons.filter_list_rounded,
-                                color: AppColors.textDark,
+                          ],
+                        ],
+                      ),
+                    ),
+
+                    // ── 2. Filter Kategori (Kedua) ──
+                    if (_type != 3) ...[
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const FunLabel('Kategori'),
+                          if (_selectedCategory != null)
+                            GestureDetector(
+                              onTap: () => setState(() {
+                                _selectedCategory = null;
+                                _selectedCategoryId = null;
+                                _visibleCount = _pageSize;
+                              }),
+                              child: const Text(
+                                'Reset',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.accentBlue,
+                                ),
                               ),
-                              onPressed: () {},
                             ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        child: Row(
+                          children: [
+                            FunPill(
+                              label: 'Semua Kategori',
+                              icon: Icons.category_outlined,
+                              selected: _selectedCategory == null,
+                              onTap: () => setState(() {
+                                _selectedCategory = null;
+                                _selectedCategoryId = null;
+                                _visibleCount = _pageSize;
+                              }),
+                            ),
+                            for (final c in displayCats) ...[
+                              const SizedBox(width: 8),
+                              FunPill(
+                                label: c.name,
+                                icon: categoryIcon(c.icon),
+                                selected: _selectedCategory == c.name,
+                                onTap: () => setState(() {
+                                  if (_selectedCategory == c.name) {
+                                    _selectedCategory = null;
+                                    _selectedCategoryId = null;
+                                  } else {
+                                    _selectedCategory = c.name;
+                                    _selectedCategoryId = c.id;
+                                  }
+                                  _visibleCount = _pageSize;
+                                }),
+                              ),
+                            ],
+                            const SizedBox(width: 8),
+                            FunPill(
+                              label: '+ Kategori',
+                              icon: Icons.add_rounded,
+                              selected: false,
+                              onTap: _openManageCategories,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    // ── 3. Filter Rentang Tanggal (Ketiga) ──
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const FunLabel('Rentang Tanggal'),
+                        if (_isCustomDateRange)
+                          GestureDetector(
+                            onTap: _resetDateRange,
+                            child: const Text(
+                              'Reset (Hari Ini)',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.accentBlue,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    GestureDetector(
+                      onTap: _pickDateRange,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: glassFill(context, normal: Colors.white),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: _isCustomDateRange
+                                ? AppColors.accentBlue.withValues(alpha: 0.5)
+                                : const Color(0xFFE2E8F0),
+                            width: _isCustomDateRange ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.date_range_rounded,
+                              size: 18,
+                              color: AppColors.accentBlue,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _dateRangeString,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.inkPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${_endDate.difference(_startDate).inDays + 1} hari dipilih (maksimal 31 hari)',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                      color: AppColors.inkMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(
+                              Icons.edit_calendar_outlined,
+                              size: 16,
+                              color: AppColors.inkSecondary,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        children: [
+                          FunPill(
+                            label: 'Hari Ini',
+                            selected: _isToday,
+                            onTap: _applyToday,
+                          ),
+                          const SizedBox(width: 8),
+                          FunPill(
+                            label: '7 Hari',
+                            selected: _isPresetDays(7),
+                            onTap: () => _applyPresetDays(7),
+                          ),
+                          const SizedBox(width: 8),
+                          FunPill(
+                            label: '14 Hari',
+                            selected: _isPresetDays(14),
+                            onTap: () => _applyPresetDays(14),
+                          ),
+                          const SizedBox(width: 8),
+                          FunPill(
+                            label: '30 Hari Terakhir',
+                            selected: _isPresetDays(30),
+                            onTap: () => _applyPresetDays(30),
                           ),
                         ],
                       ),
                     ),
-                  ),
 
-                  // ── Loading ──────────────────────────────────────────────
-                  if (state.status == HomeStatus.loading)
-                    const SliverFillRemaining(
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.deepOrange,
+                    const SizedBox(height: 16),
+                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        if (_hasAnyFilter)
+                          GestureDetector(
+                            onTap: _clearAllFilters,
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 4),
+                              child: Text(
+                                'Hapus semua filter',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.expense,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 20),
+            if (allList.isEmpty)
+              FunCard(
+                padding: const EdgeInsets.symmetric(vertical: 40),
+                child: const SizedBox(
+                  width: double.infinity,
+                  child: Column(
+                    children: [
+                      IconBox(
+                        Icons.receipt_long_outlined,
+                        size: 48,
+                        radius: 16,
+                        iconSize: 22,
+                      ),
+                      SizedBox(height: 12),
+                      Text(
+                        'Belum ada transaksi',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.inkPrimary,
                         ),
                       ),
-                    )
-
-                  // ── Error ────────────────────────────────────────────────
-                  else if (state.status == HomeStatus.failure)
-                    SliverFillRemaining(
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.error_outline,
-                                  size: 48, color: Colors.red),
-                              const SizedBox(height: 12),
-                              Text(
-                                state.errorMessage ?? 'Terjadi kesalahan',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                    color: AppColors.textMuted),
-                              ),
-                              const SizedBox(height: 16),
-                              ElevatedButton(
-                                onPressed: () =>
-                                    context.read<HomeCubit>().refresh(),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.deepOrange,
-                                ),
-                                child: const Text('Coba Lagi',
-                                    style: TextStyle(color: Colors.white)),
-                              ),
-                            ],
+                    ],
+                  ),
+                ),
+              )
+            else ...[
+              for (final e in groups.entries) _Group(e.key, e.value),
+              if (_isLoadingMore) ...[
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.accentBlue,
                           ),
                         ),
-                      ),
-                    )
-
-                  // ── Empty ────────────────────────────────────────────────
-                  else if (state.recentTransactions.isEmpty)
-                    const SliverFillRemaining(
-                      child: Center(
-                        child: Column(
+                        SizedBox(width: 10),
+                        Text(
+                          'Memuat transaksi...',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.inkMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ] else if (_visibleCount < allList.length) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Center(
+                    child: GestureDetector(
+                      onTap: _loadMore,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 9,
+                        ),
+                        decoration: BoxDecoration(
+                          color: glassFill(context, normal: Colors.white),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.85),
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x0D000000),
+                              blurRadius: 10,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.receipt_long_outlined,
-                                size: 64, color: AppColors.textMuted),
-                            SizedBox(height: 12),
+                            const Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              size: 16,
+                              color: AppColors.accentBlue,
+                            ),
+                            const SizedBox(width: 6),
                             Text(
-                              'Belum ada transaksi',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: AppColors.textMuted,
+                              'Muat 15 lagi (${allList.length - _visibleCount} tersisa)',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.accentBlue,
                               ),
                             ),
                           ],
                         ),
                       ),
-                    )
-
-                  // ── Transactions grouped by date ─────────────────────────
-                  else
-                    _TransactionList(
-                        transactions: state.recentTransactions,
-                        fmtRupiah: _fmtRupiah),
-                ],
-              ),
-            );
-          },
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ],
         ),
+      ),
+    ),
+  );
+  }
+}
+
+class _Group extends StatelessWidget {
+  final String label;
+  final List<_Tx> items;
+  const _Group(this.label, this.items);
+
+  @override
+  Widget build(BuildContext context) {
+    final inc = items
+        .where((t) => !t.transfer && t.amount > 0)
+        .fold<double>(0, (a, t) => a + t.amount);
+    final exp = items
+        .where((t) => !t.transfer && t.amount < 0)
+        .fold<double>(0, (a, t) => a + t.amount.abs());
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1,
+                      color: AppColors.inkMuted,
+                    ),
+                  ),
+                ),
+                if (inc > 0) FunBadge('+${fmtRp(inc)}'),
+                if (inc > 0 && exp > 0) const SizedBox(width: 6),
+                if (exp > 0) FunBadge('-${fmtRp(exp)}'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          FunCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                for (int i = 0; i < items.length; i++) ...[
+                  if (i > 0) const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                  _TxRow(items[i]),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Transaction list grouped by date
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _TransactionList extends StatelessWidget {
-  final List<TransactionModel> transactions;
-  final String Function(double) fmtRupiah;
-
-  const _TransactionList({
-    required this.transactions,
-    required this.fmtRupiah,
-  });
-
-  String _dateLabel(DateTime date) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
-    final d = DateTime(date.year, date.month, date.day);
-
-    if (d == today) return 'Hari Ini';
-    if (d == yesterday) return 'Kemarin';
-
-    final months = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
-    ];
-    return '${date.day} ${months[date.month - 1]} ${date.year}';
-  }
+class _TxRow extends StatelessWidget {
+  final _Tx tx;
+  const _TxRow(this.tx);
 
   @override
   Widget build(BuildContext context) {
-    // Group by date
-    final Map<String, List<TransactionModel>> grouped = {};
-    for (final tx in transactions) {
-      final label = _dateLabel(tx.date);
-      grouped.putIfAbsent(label, () => []).add(tx);
-    }
-
-    final sections = grouped.entries.toList();
-
-    return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, sectionIndex) {
-          final section = sections[sectionIndex];
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildDateSection(section.key),
-                ...section.value.map(
-                  (tx) => _buildTransactionItem(tx),
-                ),
-              ],
+    final sub = tx.transfer ? tx.wallet : '${tx.category} · ${tx.wallet}';
+    return InkWell(
+      onLongPress: tx.id.isEmpty ? null : () => _confirmDelete(context),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            IconBox(tx.icon, size: 44, radius: 14, iconSize: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    tx.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.inkPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    sub,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.inkMuted,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          );
-        },
-        childCount: sections.length,
-      ),
-    );
-  }
-
-  Widget _buildDateSection(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8, top: 4),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.bold,
-          color: Color(0xFF8E8E93),
+            const SizedBox(width: 8),
+            Text(
+              tx.transfer
+                  ? fmtRp(tx.amount.abs())
+                  : fmtRp(tx.amount, sign: true),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: AppColors.inkPrimary,
+                letterSpacing: -0.3,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildTransactionItem(TransactionModel tx) {
-    final isExpense = tx.isExpense;
-    final amountText =
-        isExpense ? '-${fmtRupiah(tx.amount)}' : '+${fmtRupiah(tx.amount)}';
-    final amountColor =
-        isExpense ? const Color(0xFF2B5B84) : const Color(0xFF52B788);
-
-    final icon = _iconFor(tx.categoryIcon, isExpense);
-    final iconBg = _iconBgFor(tx.categoryColor, isExpense);
-
-    final h = tx.date.hour.toString().padLeft(2, '0');
-    final m = tx.date.minute.toString().padLeft(2, '0');
-    final timeStr = '$h:$m';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x06000000),
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration:
-                BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(12)),
-            child: Icon(icon, color: Colors.white, size: 22),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  tx.title,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textDark,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  timeStr,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF8E8E93),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            amountText,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: amountColor,
-            ),
-          ),
-        ],
-      ),
+  Future<void> _confirmDelete(BuildContext context) async {
+    final ok = await AppGlassDialog.show(
+      context: context,
+      title: 'Hapus Catatan?',
+      message: 'Transaksi "${tx.title}" akan dihapus permanen.',
+      icon: Icons.delete_outline_rounded,
+      isDestructive: true,
+      confirmLabel: 'Hapus',
     );
-  }
-
-  IconData _iconFor(String? categoryIcon, bool isExpense) {
-    switch (categoryIcon) {
-      case 'directions_bus':
-        return Icons.directions_bus_outlined;
-      case 'restaurant':
-        return Icons.restaurant_outlined;
-      case 'savings':
-        return Icons.savings_outlined;
-      case 'shopping_bag':
-        return Icons.shopping_bag_outlined;
-      case 'movie':
-        return Icons.movie_outlined;
-      case 'favorite':
-        return Icons.favorite_outline;
-      default:
-        return isExpense
-            ? Icons.payment_outlined
-            : Icons.account_balance_wallet_outlined;
-    }
-  }
-
-  Color _iconBgFor(String? color, bool isExpense) {
-    if (!isExpense) return const Color(0xFF52B788);
-    switch (color) {
-      case 'blue':
-        return const Color(0xFF1A73E8);
-      case 'orange':
-        return const Color(0xFFFF6D00);
-      case 'teal':
-        return const Color(0xFF00897B);
-      case 'pink':
-        return const Color(0xFFE91E63);
-      case 'purple':
-        return const Color(0xFF7C4DFF);
-      case 'green':
-        return const Color(0xFF43A047);
-      default:
-        return const Color(0xFF2B5B84);
+    if (ok != true) return;
+    final repo = getIt<FinanceRepository>();
+    if (tx.transfer) {
+      await repo.deleteTransfer(tx.id);
+    } else {
+      await repo.deleteTransaction(tx.id);
     }
   }
 }

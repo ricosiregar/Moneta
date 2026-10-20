@@ -1,11 +1,24 @@
+import 'dart:convert';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/backup/backup_service.dart';
+import '../../core/components/app_toast.dart';
+import '../../core/components/fun_widgets.dart';
+import '../../core/components/app_glass_dialog.dart';
+import '../../core/di/injection.dart';
+import '../../core/sync/sync_service.dart';
 import '../../core/theme/app_colors.dart';
+import '../categories/categories_manage_page.dart';
+import '../notifications/notification_settings_page.dart';
+import '../wallets/wallets_page.dart';
 import '../auth/presentation/bloc/auth_bloc.dart';
 import '../auth/presentation/bloc/auth_event.dart';
 import '../auth/presentation/bloc/auth_state.dart';
 
+/// Akun page — static UI matching React. Only profile name/email and
+/// logout stay wired to the auth flow.
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -23,7 +36,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadCachedData();
   }
 
-  /// Baca nama & email dari SharedPreferences (cache offline)
   Future<void> _loadCachedData() async {
     final prefs = await SharedPreferences.getInstance();
     if (mounted) {
@@ -34,63 +46,87 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  void _showLogoutDialog(BuildContext context) {
-    showDialog(
+  void _showLogoutSheet(BuildContext context) {
+    AppGlassDialog.show(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text(
-          "Keluar Akun",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: const Text(
-          "Apakah Anda yakin ingin keluar dari akun Moneta Anda?",
-          style: TextStyle(fontSize: 14, color: Color(0xFF636366)),
-        ),
-        actionsPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text(
-              "Batal",
-              style: TextStyle(
-                color: Color(0xFF8E8E93),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFE63946),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            onPressed: () {
-              Navigator.pop(dialogCtx);
-              context.read<AuthBloc>().add(const LogoutRequested());
-            },
-            child: const Text(
-              "Keluar",
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
+      icon: Icons.logout_rounded,
+      title: 'Keluar dari akun?',
+      message: 'Kamu akan diarahkan ke halaman login.',
+      confirmLabel: 'Keluar',
+      isDestructive: true,
+      onConfirm: () {
+        context.read<AuthBloc>().add(const LogoutRequested());
+      },
     );
+  }
+
+  void _showClearSheet(BuildContext context) {
+    AppGlassDialog.show(
+      context: context,
+      icon: Icons.delete_outline_rounded,
+      title: 'Hapus semua data?',
+      message: 'Semua transaksi dan dompet lokal akan dihapus permanen.',
+      confirmLabel: 'Hapus Semua',
+      isDestructive: true,
+      onConfirm: () {
+        _run(
+          () => getIt<BackupService>().clearAll(),
+          success: 'Semua data dihapus',
+        );
+      },
+    );
+  }
+
+
+  Future<void> _run(Future<void> Function() action, {String? success}) async {
+    try {
+      await action();
+      if (success != null && mounted) AppToast.showSuccess(context, success);
+    } catch (e) {
+      if (mounted) AppToast.showError(context, e);
+    }
+  }
+
+  Future<void> _syncNow() async {
+    try {
+      final r = await getIt<SyncService>().sync();
+      if (mounted) {
+        AppToast.showSuccess(
+          context,
+          'Sinkron selesai \u2022 ${r.pushed} terkirim, ${r.pulled} diterima',
+        );
+      }
+    } catch (e) {
+      if (mounted) AppToast.showError(context, e);
+    }
+  }
+
+  Future<void> _importJson() async {
+    try {
+      final picked = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['json'],
+        withData: true,
+      );
+      final bytes = picked?.files.single.bytes;
+      if (bytes == null) return;
+      final n = await getIt<BackupService>().importJson(utf8.decode(bytes));
+      if (mounted) {
+        AppToast.showSuccess(
+          context,
+          '$n data dipulihkan. Tekan sinkron untuk mengirim ke cloud.',
+        );
+      }
+    } on FormatException catch (e) {
+      if (mounted) AppToast.showError(context, e.message);
+    } catch (e) {
+      if (mounted) AppToast.showError(context, e);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocListener<AuthBloc, AuthState>(
-      // Sinkronisasi cache lokal saat AuthBloc update user
       listenWhen: (prev, curr) =>
           prev.user?.fullName != curr.user?.fullName ||
           prev.user?.email != curr.user?.email,
@@ -106,7 +142,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       },
       child: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, state) {
-          // Prioritas: AuthBloc (online) → SharedPreferences (offline cache)
           final String fullName = state.user?.fullName?.isNotEmpty == true
               ? state.user!.fullName!
               : _cachedName;
@@ -117,262 +152,273 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ? fullName
               : (email.contains('@')
                     ? email.split('@').first
-                    : "Pengguna Moneta");
-          final String initial = name.isNotEmpty
-              ? name.substring(0, 1).toUpperCase()
-              : "M";
+                    : 'Pengguna MonTrack');
+          final parts = name.trim().split(RegExp(r'\s+'));
+          final String initial =
+              (parts.length > 1
+                      ? '${parts[0][0]}${parts[1][0]}'
+                      : name.substring(0, name.length >= 2 ? 2 : 1))
+                  .toUpperCase();
           final String displayEmail = email.isNotEmpty
               ? email
-              : "Belum terhubung";
+              : 'Belum terhubung';
 
-          return Scaffold(
-            backgroundColor: AppColors.bgOffWhite,
-            body: SingleChildScrollView(
+          return GlassPage(
+            bottom: false,
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 180),
               child: Column(
-              children: [
-                // Top Header with Yellow Gradient
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(24, 60, 24, 32),
-                  decoration: const BoxDecoration(
-                    gradient: AppColors.yellowGradient,
-                    borderRadius: BorderRadius.vertical(
-                      bottom: Radius.circular(36),
-                    ),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const FunPageHeader(
+                    title: 'Akun',
+                    subtitle: 'Kelola data dan preferensi',
                   ),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 88,
-                        height: 88,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x1A000000),
-                              blurRadius: 16,
-                              offset: Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: Center(
+                  const SizedBox(height: 20),
+                  FunCard(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 52,
+                          height: 52,
+                          alignment: Alignment.center,
+                          decoration: auroraActiveDecoration(radius: 16),
                           child: Text(
                             initial,
                             style: const TextStyle(
-                              fontSize: 36,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textDark,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        name,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        displayEmail,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF4A4A4A),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Settings List
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    children: [
-                      _buildSettingsCard(
-                        title: "Pengaturan Akun",
-                        items: [
-                          _buildSettingsTile(
-                            icon: Icons.person_outline_rounded,
-                            title: "Edit Profil",
-                            subtitle: "Ubah nama dan informasi akun",
-                            onTap: () {},
-                          ),
-                          _buildDivider(),
-                          _buildSettingsTile(
-                            icon: Icons.shield_outlined,
-                            title: "Keamanan Akun",
-                            subtitle: "Ganti kata sandi & 2FA",
-                            onTap: () {},
-                          ),
-                          _buildDivider(),
-                          _buildSettingsTile(
-                            icon: Icons.notifications_none_rounded,
-                            title: "Notifikasi",
-                            subtitle: "Atur pengingat anggaran dan transaksi",
-                            onTap: () {},
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      _buildSettingsCard(
-                        title: "Aplikasi",
-                        items: [
-                          _buildSettingsTile(
-                            icon: Icons.language_rounded,
-                            title: "Bahasa",
-                            subtitle: "Bahasa Indonesia",
-                            onTap: () {},
-                          ),
-                          _buildDivider(),
-                          _buildSettingsTile(
-                            icon: Icons.help_outline_rounded,
-                            title: "Pusat Bantuan & FAQ",
-                            subtitle: "Panduan pemakaian Moneta",
-                            onTap: () {},
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Logout Button
-                      InkWell(
-                        onTap: () => _showLogoutDialog(context),
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFECEE),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFFFCDD2)),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              Icon(
-                                Icons.logout_rounded,
-                                color: Color(0xFFE63946),
-                                size: 20,
-                              ),
-                              SizedBox(width: 8),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                               Text(
-                                "Keluar dari Akun",
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFFE63946),
+                                name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.inkPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                displayEmail,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.inkMuted,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ),
-
-                      const SizedBox(height: 40),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                  _Section('Wallet', Icons.credit_card_outlined, [
+                    _Row(
+                      Icons.account_balance_wallet_outlined,
+                      'Kelola Dompet',
+                      'Dompet Parent, anak, dan pembagian gaji',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const WalletsPage()),
+                      ),
+                    ),
+                    _Row(
+                      Icons.category_outlined,
+                      'Atur Kategori',
+                      'Kelola & tambah kategori transaksi kustom',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const CategoriesManagePage(),
+                        ),
+                      ),
+                    ),
+                    _Row(
+                      Icons.notifications_active_outlined,
+                      'Deteksi Otomatis',
+                      'Baca transaksi dari notifikasi bank',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const NotificationSettingsPage(),
+                        ),
+                      ),
+                    ),
+                  ]),
+
+                  _Section('Data & Backup', Icons.cloud_outlined, [
+                    _Row(
+                      Icons.cloud_sync_outlined,
+                      'Sinkronisasi Cloud',
+                      'Cadangkan data ke akun kamu',
+                      onTap: _syncNow,
+                    ),
+                    _Row(
+                      Icons.file_download_outlined,
+                      'Ekspor JSON',
+                      'Simpan semua data',
+                      onTap: () =>
+                          _run(() => getIt<BackupService>().shareJson()),
+                    ),
+                    _Row(
+                      Icons.file_upload_outlined,
+                      'Impor JSON',
+                      'Pulihkan dari berkas cadangan',
+                      onTap: _importJson,
+                    ),
+                    _Row(
+                      Icons.table_chart_outlined,
+                      'Ekspor CSV',
+                      'Buka di spreadsheet',
+                      onTap: () =>
+                          _run(() => getIt<BackupService>().shareCsv()),
+                    ),
+                    _Row(
+                      Icons.delete_outline_rounded,
+                      'Hapus semua data',
+                      'Tindakan ini tidak bisa dibatalkan',
+                      onTap: () => _showClearSheet(context),
+                    ),
+                  ]),
+                  _Section('Akun', Icons.person_outline_rounded, [
+                    _Row(
+                      Icons.logout_rounded,
+                      'Data terenkripsi & aman',
+                      'Datamu tersimpan aman dan hanya bisa kamu akses.',
+                      onTap: () => _showLogoutSheet(context),
+                    ),
+                    _Row(
+                      Icons.logout_rounded,
+                      'Keluar dari Akun',
+                      'Kamu akan diarahkan ke halaman login',
+                      onTap: () => _showLogoutSheet(context),
+                    ),
+                  ]),
+                  const SizedBox(height: 20),
+
+                  const SizedBox(height: 20),
+                  const Center(
+                    child: Text(
+                      'Moneta v1.0',
+                      style: TextStyle(fontSize: 11, color: AppColors.inkMuted),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
+          );
         },
       ),
     );
   }
+}
 
-  Widget _buildSettingsCard({
-    required String title,
-    required List<Widget> items,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 8),
-          child: Text(
-            title,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF8E8E93),
-              letterSpacing: 0.5,
+class _Section extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final List<_Row> rows;
+  const _Section(this.title, this.icon, this.rows);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceRaised,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(icon, size: 12, color: AppColors.inkSecondary),
+                ),
+                const SizedBox(width: 8),
+                FunLabel(title),
+              ],
             ),
           ),
-        ),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x08000000),
-                blurRadius: 10,
-                offset: Offset(0, 4),
-              ),
-            ],
+          FunCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                for (int i = 0; i < rows.length; i++) ...[
+                  if (i > 0) const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                  rows[i],
+                ],
+              ],
+            ),
           ),
-          child: Column(children: items),
-        ),
-      ],
+        ],
+      ),
     );
   }
+}
 
-  Widget _buildSettingsTile({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: AppColors.toggleBgColor,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(icon, color: AppColors.textDark, size: 22),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textDark,
-        ),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: const TextStyle(fontSize: 12, color: Color(0xFF8E8E93)),
-      ),
-      trailing: const Icon(
-        Icons.chevron_right_rounded,
-        color: Color(0xFFC7C7CC),
-        size: 22,
-      ),
-      onTap: onTap,
-    );
-  }
+class _Row extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String sub;
+  final VoidCallback? onTap;
+  const _Row(this.icon, this.label, this.sub, {this.onTap});
 
-  Widget _buildDivider() {
-    return const Divider(
-      height: 1,
-      thickness: 1,
-      indent: 64,
-      endIndent: 16,
-      color: Color(0xFFF2F2F7),
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap ?? () {},
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            IconBox(icon),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.inkPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    sub,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.inkMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 20,
+              color: Color(0xFFCBD5E1),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

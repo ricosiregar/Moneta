@@ -15,6 +15,7 @@ class HomeState {
   final double totalExpense;
   final TransactionPeriod selectedPeriod;
   final bool isAddingWallet;
+  final bool isAddingTransaction;
   final String? errorMessage;
 
   const HomeState({
@@ -25,6 +26,7 @@ class HomeState {
     this.totalExpense = 0,
     this.selectedPeriod = TransactionPeriod.monthly,
     this.isAddingWallet = false,
+    this.isAddingTransaction = false,
     this.errorMessage,
   });
 
@@ -36,6 +38,7 @@ class HomeState {
     double? totalExpense,
     TransactionPeriod? selectedPeriod,
     bool? isAddingWallet,
+    bool? isAddingTransaction,
     String? errorMessage,
   }) {
     return HomeState(
@@ -46,6 +49,7 @@ class HomeState {
       totalExpense: totalExpense ?? this.totalExpense,
       selectedPeriod: selectedPeriod ?? this.selectedPeriod,
       isAddingWallet: isAddingWallet ?? this.isAddingWallet,
+      isAddingTransaction: isAddingTransaction ?? this.isAddingTransaction,
       errorMessage: errorMessage ?? this.errorMessage,
     );
   }
@@ -161,6 +165,37 @@ class HomeCubit extends Cubit<HomeState> {
         isAddingWallet: false,
         errorMessage: e.toString(),
       ));
+    }
+  }
+
+  Future<void> addTransaction({
+    required String title,
+    required double amount,
+    required String type,
+    String? walletId,
+    String? categoryId,
+    DateTime? date,
+    String? note,
+  }) async {
+    emit(state.copyWith(isAddingTransaction: true));
+    try {
+      await _repository.addTransaction(
+        title: title,
+        amount: amount,
+        type: type,
+        walletId: walletId,
+        categoryId: categoryId,
+        date: date,
+        note: note,
+      );
+      emit(state.copyWith(isAddingTransaction: false));
+      await loadDashboard();
+    } catch (e) {
+      emit(state.copyWith(
+        isAddingTransaction: false,
+        errorMessage: e.toString(),
+      ));
+      rethrow;
     }
   }
 

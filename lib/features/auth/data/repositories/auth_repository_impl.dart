@@ -1,5 +1,6 @@
 import 'package:Moneta/core/network/error/exceptions.dart';
 import 'package:Moneta/core/network/error/failures.dart';
+import 'package:Moneta/core/utils/app_error_formatter.dart';
 import 'package:dartz/dartz.dart';
 
 import '../../domain/entities/auth_signup_result.dart';
@@ -30,13 +31,13 @@ class AuthRepositoryImpl implements AuthRepository {
       );
       return Right(userModel.toEntity());
     } on AuthException catch (e) {
-      return Left(AuthFailure(message: e.message));
+      return Left(AuthFailure(message: AppErrorFormatter.format(e.message)));
     } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
+      return Left(ServerFailure(message: AppErrorFormatter.format(e.message), statusCode: e.statusCode));
     } on NetworkException catch (e) {
-      return Left(NetworkFailure(message: e.message));
+      return Left(NetworkFailure(message: AppErrorFormatter.format(e.message)));
     } catch (e) {
-      return Left(ServerFailure(message: 'Terjadi kesalahan sistem: $e'));
+      return Left(ServerFailure(message: AppErrorFormatter.format(e)));
     }
   }
 
@@ -54,13 +55,13 @@ class AuthRepositoryImpl implements AuthRepository {
       );
       return Right(result);
     } on AuthException catch (e) {
-      return Left(AuthFailure(message: e.message));
+      return Left(AuthFailure(message: AppErrorFormatter.format(e.message)));
     } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
+      return Left(ServerFailure(message: AppErrorFormatter.format(e.message), statusCode: e.statusCode));
     } on NetworkException catch (e) {
-      return Left(NetworkFailure(message: e.message));
+      return Left(NetworkFailure(message: AppErrorFormatter.format(e.message)));
     } catch (e) {
-      return Left(ServerFailure(message: 'Terjadi kesalahan sistem: $e'));
+      return Left(ServerFailure(message: AppErrorFormatter.format(e)));
     }
   }
 
@@ -70,13 +71,13 @@ class AuthRepositoryImpl implements AuthRepository {
       final userModel = await remoteDataSource.signInWithGoogle();
       return Right(userModel.toEntity());
     } on AuthException catch (e) {
-      return Left(AuthFailure(message: e.message));
+      return Left(AuthFailure(message: AppErrorFormatter.format(e.message)));
     } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
+      return Left(ServerFailure(message: AppErrorFormatter.format(e.message), statusCode: e.statusCode));
     } on NetworkException catch (e) {
-      return Left(NetworkFailure(message: e.message));
+      return Left(NetworkFailure(message: AppErrorFormatter.format(e.message)));
     } catch (e) {
-      return Left(ServerFailure(message: 'Terjadi kesalahan sistem: $e'));
+      return Left(ServerFailure(message: AppErrorFormatter.format(e)));
     }
   }
 
@@ -86,13 +87,13 @@ class AuthRepositoryImpl implements AuthRepository {
       await remoteDataSource.sendPasswordResetEmail(email);
       return const Right(null);
     } on AuthException catch (e) {
-      return Left(AuthFailure(message: e.message));
+      return Left(AuthFailure(message: AppErrorFormatter.format(e.message)));
     } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
+      return Left(ServerFailure(message: AppErrorFormatter.format(e.message), statusCode: e.statusCode));
     } on NetworkException catch (e) {
-      return Left(NetworkFailure(message: e.message));
+      return Left(NetworkFailure(message: AppErrorFormatter.format(e.message)));
     } catch (e) {
-      return Left(ServerFailure(message: 'Terjadi kesalahan sistem: $e'));
+      return Left(ServerFailure(message: AppErrorFormatter.format(e)));
     }
   }
 
@@ -102,13 +103,13 @@ class AuthRepositoryImpl implements AuthRepository {
       await remoteDataSource.updatePassword(newPassword);
       return const Right(null);
     } on AuthException catch (e) {
-      return Left(AuthFailure(message: e.message));
+      return Left(AuthFailure(message: AppErrorFormatter.format(e.message)));
     } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
+      return Left(ServerFailure(message: AppErrorFormatter.format(e.message), statusCode: e.statusCode));
     } on NetworkException catch (e) {
-      return Left(NetworkFailure(message: e.message));
+      return Left(NetworkFailure(message: AppErrorFormatter.format(e.message)));
     } catch (e) {
-      return Left(ServerFailure(message: 'Terjadi kesalahan sistem: $e'));
+      return Left(ServerFailure(message: AppErrorFormatter.format(e)));
     }
   }
 
@@ -118,11 +119,11 @@ class AuthRepositoryImpl implements AuthRepository {
       await remoteDataSource.signOut();
       return const Right(null);
     } on AuthException catch (e) {
-      return Left(AuthFailure(message: e.message));
+      return Left(AuthFailure(message: AppErrorFormatter.format(e.message)));
     } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message, statusCode: e.statusCode));
+      return Left(ServerFailure(message: AppErrorFormatter.format(e.message), statusCode: e.statusCode));
     } catch (e) {
-      return Left(ServerFailure(message: 'Terjadi kesalahan sistem: $e'));
+      return Left(ServerFailure(message: AppErrorFormatter.format(e)));
     }
   }
 
@@ -132,7 +133,7 @@ class AuthRepositoryImpl implements AuthRepository {
       final userModel = remoteDataSource.getCurrentUser();
       return Right(userModel?.toEntity());
     } catch (e) {
-      return Left(CacheFailure(message: 'Gagal mengambil sesi aktif: $e'));
+      return Left(CacheFailure(message: AppErrorFormatter.format(e)));
     }
   }
 }

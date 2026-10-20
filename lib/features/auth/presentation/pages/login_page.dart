@@ -1,6 +1,8 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/components/app_toast.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/storage/local_storage.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -77,19 +79,7 @@ class _LoginPageState extends State<LoginPage> {
     return BlocConsumer<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state.status == AuthStatus.failure && state.errorMessage != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                state.errorMessage!,
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
-              backgroundColor: const Color(0xFFE63946),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          );
+          AppToast.showError(context, state.errorMessage);
         }
       },
       builder: (context, state) {
@@ -98,13 +88,13 @@ class _LoginPageState extends State<LoginPage> {
         return Scaffold(
           body: Container(
             decoration: const BoxDecoration(
-              gradient: AppColors.yellowGradient,
+              gradient: AppColors.auroraHeaderGradient,
             ),
             child: SafeArea(
               bottom: false,
               child: Column(
                 children: [
-                  // TOP SECTION (Yellow Gradient Header)
+                  // TOP SECTION (Aurora Gradient Header)
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24.0,
@@ -121,47 +111,76 @@ class _LoginPageState extends State<LoginPage> {
                               "Selamat Datang!",
                               style: TextStyle(
                                 fontSize: 26,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textDark,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.inkPrimary,
+                                letterSpacing: -0.5,
                               ),
                             ),
                             SizedBox(height: 4),
                             Text(
-                              "Masuk ke akun Moneta Anda",
+                              "Masuk ke akun MonTrack Anda",
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
-                                color: AppColors.textDark,
+                                color: AppColors.inkSecondary,
                               ),
                             ),
                           ],
                         ),
                         Container(
                           padding: const EdgeInsets.all(12),
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.85),
                             shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 1.5,
+                            ),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x120F172A),
+                                blurRadius: 10,
+                                offset: Offset(0, 3),
+                              ),
+                            ],
                           ),
                           child: const Icon(
                             Icons.lock_open_rounded,
-                            color: AppColors.textDark,
-                            size: 26,
+                            color: AppColors.inkPrimary,
+                            size: 24,
                           ),
                         ),
                       ],
                     ),
                   ),
 
-                  // BOTTOM SECTION (Rounded Off-White Container)
+                  // BOTTOM SECTION (Frosted Glass Platter)
                   Expanded(
                     child: Container(
                       width: double.infinity,
-                      decoration: const BoxDecoration(
-                        color: AppColors.bgOffWhite,
-                        borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(40),
+                      decoration: BoxDecoration(
+                        gradient: AppColors.glassSheetGradient,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(36),
                         ),
+                        border: Border.all(
+                          color: AppColors.glassBorder,
+                          width: 1.5,
+                        ),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x140F172A),
+                            blurRadius: 28,
+                            offset: Offset(0, -6),
+                          ),
+                        ],
                       ),
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(36),
+                        ),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
                       child: SingleChildScrollView(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 24.0,
@@ -248,7 +267,7 @@ class _LoginPageState extends State<LoginPage> {
                                                   _rememberMe = value ?? false;
                                                 });
                                               },
-                                              activeColor: AppColors.accentExpense,
+                                              activeColor: AppColors.primarySlate,
                                               shape: RoundedRectangleBorder(
                                                 borderRadius:
                                                     BorderRadius.circular(5),
@@ -268,7 +287,7 @@ class _LoginPageState extends State<LoginPage> {
                                             style: TextStyle(
                                               fontSize: 13,
                                               fontWeight: FontWeight.w500,
-                                              color: AppColors.textDark,
+                                              color: AppColors.inkPrimary,
                                             ),
                                           ),
                                         ],
@@ -292,7 +311,7 @@ class _LoginPageState extends State<LoginPage> {
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w600,
-                                        color: AppColors.accentExpense, // Denim Blue
+                                        color: AppColors.accentBlue,
                                       ),
                                     ),
                                   ),
@@ -327,7 +346,7 @@ class _LoginPageState extends State<LoginPage> {
                                     "Belum punya akun? ",
                                     style: TextStyle(
                                       fontSize: 14,
-                                      color: Color(0xFF636366),
+                                      color: AppColors.inkSecondary,
                                     ),
                                   ),
                                   GestureDetector(
@@ -339,7 +358,7 @@ class _LoginPageState extends State<LoginPage> {
                                       style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.bold,
-                                        color: AppColors.accentExpense, // Denim Blue
+                                        color: AppColors.accentBlue,
                                       ),
                                     ),
                                   ),
@@ -351,6 +370,8 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                   ),
+                ),
+              ),
                 ],
               ),
             ),

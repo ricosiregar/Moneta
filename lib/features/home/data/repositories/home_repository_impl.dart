@@ -47,4 +47,24 @@ class HomeRepositoryImpl implements HomeRepository {
         icon: icon,
         color: color,
       );
+
+  @override
+  Future<TransactionModel> addTransaction({
+    required String title,
+    required double amount,
+    required String type,
+    String? walletId,
+    String? categoryId,
+    DateTime? date,
+    String? note,
+  }) =>
+      remoteDataSource.addTransaction(
+        title: title,
+        amount: amount,
+        type: type,
+        walletId: walletId,
+        categoryId: categoryId,
+        date: date,
+        note: note,
+      );
 }

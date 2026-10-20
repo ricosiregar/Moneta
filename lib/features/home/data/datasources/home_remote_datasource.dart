@@ -20,6 +20,15 @@ abstract class HomeRemoteDataSource {
     required String icon,
     required String color,
   });
+  Future<TransactionModel> addTransaction({
+    required String title,
+    required double amount,
+    required String type,
+    String? walletId,
+    String? categoryId,
+    DateTime? date,
+    String? note,
+  });
 }
 
 class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
@@ -229,6 +238,66 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
     } catch (e) {
       if (e is app_ex.AuthException) rethrow;
       throw app_ex.ServerException(message: 'Gagal menambah wallet: $e');
+    }
+  }
+
+  @override
+  Future<TransactionModel> addTransaction({
+    required String title,
+    required double amount,
+    required String type,
+    String? walletId,
+    String? categoryId,
+    DateTime? date,
+    String? note,
+  }) async {
+    try {
+      final insertData = <String, dynamic>{
+        'user_id': _userId,
+        'title': title,
+        'amount': amount,
+        'type': type,
+        'date': (date ?? DateTime.now()).toUtc().toIso8601String(),
+      };
+      if (walletId != null && walletId.isNotEmpty) {
+        insertData['wallet_id'] = walletId;
+      }
+      if (categoryId != null && categoryId.isNotEmpty) {
+        insertData['category_id'] = categoryId;
+      }
+      if (note != null && note.isNotEmpty) {
+        insertData['note'] = note;
+      }
+
+      final data = await supabase
+          .from('transactions')
+          .insert(insertData)
+          .select('*, categories(name, icon, color)')
+          .single();
+
+      // Update wallet balance if walletId is present
+      if (walletId != null && walletId.isNotEmpty) {
+        try {
+          final walletRes = await supabase
+              .from('wallets')
+              .select('balance')
+              .eq('id', walletId)
+              .single();
+          final currentBalance = (walletRes['balance'] as num).toDouble();
+          final newBalance = type == 'income'
+              ? currentBalance + amount
+              : currentBalance - amount;
+          await supabase
+              .from('wallets')
+              .update({'balance': newBalance})
+              .eq('id', walletId);
+        } catch (_) {}
+      }
+
+      return TransactionModel.fromJson(data);
+    } catch (e) {
+      if (e is app_ex.AuthException) rethrow;
+      throw app_ex.ServerException(message: 'Gagal menambah transaksi: $e');
     }
   }
 }

@@ -17,4 +17,13 @@ abstract class HomeRepository {
     required String icon,
     required String color,
   });
+  Future<TransactionModel> addTransaction({
+    required String title,
+    required double amount,
+    required String type,
+    String? walletId,
+    String? categoryId,
+    DateTime? date,
+    String? note,
+  });
 }

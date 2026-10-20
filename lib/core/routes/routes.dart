@@ -12,14 +12,16 @@ import '../../features/auth/presentation/pages/splash_page.dart';
 import '../../features/main/cubit/bottom_nav_cubit.dart';
 import '../../features/main/main_page.dart';
 
-final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>(
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>(
   debugLabel: 'root',
 );
 
 class AppRouter {
+  static GlobalKey<NavigatorState> get navigatorKey => rootNavigatorKey;
+
   static GoRouter createRouter(AuthBloc authBloc) {
     return GoRouter(
-      navigatorKey: _rootNavigatorKey,
+      navigatorKey: rootNavigatorKey,
       initialLocation: '/splash',
       refreshListenable: GoRouterRefreshStream(authBloc.stream),
       redirect: (context, state) {
@@ -92,7 +94,7 @@ class AppRouter {
         GoRoute(
           path: '/splash',
           name: 'splash',
-          parentNavigatorKey: _rootNavigatorKey,
+          parentNavigatorKey: rootNavigatorKey,
           builder: (context, state) => const SplashPage(),
         ),
 
@@ -100,31 +102,31 @@ class AppRouter {
         GoRoute(
           path: '/login',
           name: 'login',
-          parentNavigatorKey: _rootNavigatorKey,
+          parentNavigatorKey: rootNavigatorKey,
           builder: (context, state) => const LoginPage(),
         ),
         GoRoute(
           path: '/register',
           name: 'register',
-          parentNavigatorKey: _rootNavigatorKey,
+          parentNavigatorKey: rootNavigatorKey,
           builder: (context, state) => const RegisterPage(),
         ),
         GoRoute(
           path: '/forgot-password',
           name: 'forgot-password',
-          parentNavigatorKey: _rootNavigatorKey,
+          parentNavigatorKey: rootNavigatorKey,
           builder: (context, state) => const ForgotPasswordPage(),
         ),
         GoRoute(
           path: '/reset-password',
           name: 'reset-password',
-          parentNavigatorKey: _rootNavigatorKey,
+          parentNavigatorKey: rootNavigatorKey,
           builder: (context, state) => const ResetPasswordPage(),
         ),
         GoRoute(
           path: '/login-callback',
           name: 'login-callback',
-          parentNavigatorKey: _rootNavigatorKey,
+          parentNavigatorKey: rootNavigatorKey,
           builder: (context, state) => const SplashPage(),
         ),
 
@@ -134,7 +136,7 @@ class AppRouter {
         GoRoute(
           path: '/dashboard',
           name: 'dashboard',
-          parentNavigatorKey: _rootNavigatorKey,
+          parentNavigatorKey: rootNavigatorKey,
           builder: (context, state) => BlocProvider(
             create: (_) => BottomNavCubit(),
             child: const MainPage(),
