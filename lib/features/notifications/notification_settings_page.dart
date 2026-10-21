@@ -315,12 +315,32 @@ class _AddSourceSheetState extends State<_AddSourceSheet> {
               ],
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: _custom,
-              onChanged: (_) => setState(() {}),
-              decoration: const InputDecoration(
-                hintText: 'atau ketik package name lain',
-                isDense: true,
+            Container(
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: glassFill(context),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  width: 1.2,
+                ),
+              ),
+              child: TextField(
+                controller: _custom,
+                onChanged: (_) => setState(() {}),
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.inkPrimary,
+                ),
+                decoration: const InputDecoration(
+                  hintText: 'atau ketik package name lain',
+                  hintStyle: TextStyle(color: AppColors.inkMuted, fontSize: 13),
+                  border: InputBorder.none,
+                  isDense: true,
+                ),
               ),
             ),
             const SizedBox(height: 16),

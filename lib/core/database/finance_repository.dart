@@ -830,6 +830,37 @@ class FinanceRepository {
     final target = all.where((s) => s.id == id).firstOrNull;
     if (target == null) return null;
 
+    final balRow = await _db.customSelect(
+      '''
+      SELECT w.opening_balance
+        + COALESCE((SELECT SUM(amount) FROM transactions t
+            WHERE t.wallet_id = w.id AND t.type = 'income'
+              AND t.deleted_at IS NULL), 0)
+        - COALESCE((SELECT SUM(amount) FROM transactions t
+            WHERE t.wallet_id = w.id AND t.type = 'expense'
+              AND t.deleted_at IS NULL), 0)
+        + COALESCE((SELECT SUM(amount) FROM transfers x
+            WHERE x.to_wallet_id = w.id AND x.deleted_at IS NULL), 0)
+        - COALESCE((SELECT SUM(amount + fee) FROM transfers x
+            WHERE x.from_wallet_id = w.id AND x.deleted_at IS NULL), 0)
+        - COALESCE((SELECT SUM(amount) FROM saving_jar_entries e
+            WHERE e.wallet_id = w.id AND e.type = 'deposit'
+              AND e.deleted_at IS NULL), 0)
+        + COALESCE((SELECT SUM(amount) FROM saving_jar_entries e
+            WHERE e.wallet_id = w.id AND e.type = 'withdraw'
+              AND e.deleted_at IS NULL), 0)
+        AS balance
+      FROM wallets w
+      WHERE w.id = ? AND w.deleted_at IS NULL AND w.is_archived = 0
+      ''',
+      variables: [Variable.withString(target.walletId)],
+    ).getSingleOrNull();
+
+    final walletBalance = balRow?.read<double>('balance') ?? 0;
+    if (walletBalance < target.amount) {
+      return null;
+    }
+
     await _db.transaction(() async {
       if (target.kind == 'transfer' &&
           target.toWalletId != null &&

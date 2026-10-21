@@ -121,9 +121,13 @@ class _AddCategorySheetState extends State<AddCategorySheet> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceRaised,
+                  gradient: AppColors.glassCardGradient,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.92),
+                    width: 1.3,
+                  ),
+                  boxShadow: AppColors.glassShadowSoft,
                 ),
                 child: Row(
                   children: [
@@ -131,10 +135,10 @@ class _AddCategorySheetState extends State<AddCategorySheet> {
                       width: 52,
                       height: 52,
                       decoration: BoxDecoration(
-                        color: activeColor.withValues(alpha: 0.12),
+                        color: activeColor.withValues(alpha: 0.14),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: activeColor.withValues(alpha: 0.3),
+                          color: Colors.white.withValues(alpha: 0.9),
                           width: 1.5,
                         ),
                       ),
@@ -170,6 +174,9 @@ class _AddCategorySheetState extends State<AddCategorySheet> {
                             decoration: BoxDecoration(
                               color: activeColor.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.7),
+                              ),
                             ),
                             child: Text(
                               isExpense ? 'Pengeluaran' : 'Pemasukan',
@@ -193,8 +200,12 @@ class _AddCategorySheetState extends State<AddCategorySheet> {
               const SizedBox(height: 8),
               Container(
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceRaised,
+                  color: glassFill(context),
                   borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    width: 1.2,
+                  ),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 child: TextField(
@@ -223,9 +234,12 @@ class _AddCategorySheetState extends State<AddCategorySheet> {
               Container(
                 height: 240,
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceRaised.withValues(alpha: 0.5),
+                  color: glassFill(context),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    width: 1.2,
+                  ),
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
@@ -252,14 +266,14 @@ class _AddCategorySheetState extends State<AddCategorySheet> {
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? AppColors.accentBlue.withValues(alpha: 0.12)
-                                : Colors.white,
+                                ? AppColors.accentBlue.withValues(alpha: 0.14)
+                                : Colors.white.withValues(alpha: 0.65),
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color: isSelected
                                   ? AppColors.accentBlue
-                                  : const Color(0xFFE2E8F0),
-                              width: isSelected ? 2 : 1,
+                                  : Colors.white.withValues(alpha: 0.9),
+                              width: isSelected ? 2 : 1.1,
                             ),
                           ),
                           child: Column(

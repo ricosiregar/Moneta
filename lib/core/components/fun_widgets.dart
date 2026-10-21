@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme/app_colors.dart';
 import 'app_buttons.dart' show RRectInsetGlassPainter;
 
@@ -17,16 +18,56 @@ const List<Color> kChartColors = [
   Color(0xFF60A5FA),
 ];
 
+// ignore: deprecated_member_use
+final Pattern _nonDigitPattern = RegExp(r'[^\d]');
+// ignore: deprecated_member_use
+final Pattern _leadingZerosPattern = RegExp(r'^0+(?=\d)');
+// ignore: deprecated_member_use
+final Pattern _thousandsPattern = RegExp(r'\B(?=(\d{3})+(?!\d))');
+
+/// Memformat angka menjadi string ribuan dengan titik menggunakan RegExp (contoh: 1500000 -> 1.500.000).
+String fmtThousands(num amount) {
+  final raw = amount.abs().round().toString();
+  return raw.replaceAllMapped(_thousandsPattern, (_) => '.');
+}
+
+/// Memformat teks input nominal uang dengan RegExp pemisah ribuan.
+String formatMoneyString(String input) {
+  final digits = input.replaceAll(_nonDigitPattern, '');
+  if (digits.isEmpty) return '';
+  final normalized = digits.replaceFirst(_leadingZerosPattern, '');
+  return normalized.replaceAllMapped(_thousandsPattern, (_) => '.');
+}
+
+/// Mengurai string nominal uang berformat ribuan menjadi nilai double.
+double parseMoney(String input) {
+  final digits = input.replaceAll(_nonDigitPattern, '');
+  if (digits.isEmpty) return 0;
+  return double.tryParse(digits) ?? 0;
+}
+
+/// TextInputFormatter berbasis RegExp untuk semua input nominal uang.
+class RupiahInputFormatter extends TextInputFormatter {
+  const RupiahInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final formatted = formatMoneyString(newValue.text);
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
 String fmtRp(num amount, {bool sign = false}) {
   final negative = amount < 0;
-  final raw = amount.abs().round().toString();
-  final buf = StringBuffer();
-  for (int i = 0; i < raw.length; i++) {
-    if (i > 0 && (raw.length - i) % 3 == 0) buf.write('.');
-    buf.write(raw[i]);
-  }
+  final formatted = fmtThousands(amount);
   final prefix = negative ? '-' : (sign ? '+' : '');
-  return '${prefix}Rp$buf';
+  return '${prefix}Rp$formatted';
 }
 
 class FunCard extends StatelessWidget {
@@ -213,8 +254,115 @@ class FunLabel extends StatelessWidget {
   }
 }
 
+/// Vector icon berbentuk Ayam / Celengan Ayam dengan gaya garis (outline)
+/// yang serasi dengan Material Outlined Icons.
+class ChickenBankIcon extends StatelessWidget {
+  final double size;
+  final Color color;
+
+  const ChickenBankIcon({
+    super.key,
+    this.size = 20,
+    this.color = AppColors.inkSecondary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size.square(size),
+      painter: _ChickenBankPainter(color: color),
+    );
+  }
+}
+
+class _ChickenBankPainter extends CustomPainter {
+  final Color color;
+  const _ChickenBankPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final s = size.width / 24.0;
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.85 * s
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final fill = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    // Siluet badan & kepala ayam (menghadap ke kiri, ekor melengkung di kanan)
+    final body = Path()
+      ..moveTo(6.0 * s, 12.2 * s)
+      // Leher & kepala bulat
+      ..cubicTo(5.8 * s, 9.2 * s, 6.6 * s, 6.8 * s, 8.8 * s, 6.8 * s)
+      ..cubicTo(10.5 * s, 6.8 * s, 11.2 * s, 8.2 * s, 11.6 * s, 9.6 * s)
+      // Punggung celengan
+      ..lineTo(16.2 * s, 9.6 * s)
+      // Ekor ayam melengkung ke atas kanan
+      ..cubicTo(17.8 * s, 9.4 * s, 19.2 * s, 7.6 * s, 20.4 * s, 6.8 * s)
+      ..cubicTo(21.2 * s, 9.5 * s, 20.6 * s, 13.0 * s, 19.0 * s, 15.0 * s)
+      // Perut membulat di bawah
+      ..cubicTo(17.0 * s, 17.6 * s, 11.5 * s, 18.0 * s, 8.2 * s, 16.0 * s)
+      ..cubicTo(6.6 * s, 15.0 * s, 6.1 * s, 13.6 * s, 6.0 * s, 12.2 * s)
+      ..close();
+    canvas.drawPath(body, stroke);
+
+    // Jengger (mahkota ayam di atas kepala)
+    final comb = Path()
+      ..moveTo(7.4 * s, 6.9 * s)
+      ..quadraticBezierTo(7.6 * s, 4.0 * s, 8.9 * s, 5.4 * s)
+      ..quadraticBezierTo(10.2 * s, 3.8 * s, 10.6 * s, 7.1 * s);
+    canvas.drawPath(comb, stroke);
+
+    // Paruh ayam di kiri kepala
+    final beak = Path()
+      ..moveTo(6.0 * s, 8.7 * s)
+      ..lineTo(3.2 * s, 9.9 * s)
+      ..lineTo(5.9 * s, 11.0 * s);
+    canvas.drawPath(beak, stroke);
+
+    // Mata ayam
+    canvas.drawCircle(Offset(8.4 * s, 9.2 * s), 1.05 * s, fill);
+
+    // Sayap lengkung di tengah badan
+    final wing = Path()
+      ..moveTo(11.0 * s, 12.2 * s)
+      ..cubicTo(11.2 * s, 14.6 * s, 14.8 * s, 14.8 * s, 15.8 * s, 12.5 * s);
+    canvas.drawPath(wing, stroke);
+
+    // Koin kecil di punggung celengan ayam
+    final coin = Path()
+      ..moveTo(12.3 * s, 9.5 * s)
+      ..arcToPoint(
+        Offset(15.5 * s, 9.5 * s),
+        radius: Radius.circular(1.6 * s),
+        clockwise: true,
+      );
+    canvas.drawPath(coin, stroke);
+
+    // Kaki ayam
+    canvas.drawLine(
+      Offset(11.4 * s, 17.2 * s),
+      Offset(10.8 * s, 20.2 * s),
+      stroke,
+    );
+    canvas.drawLine(
+      Offset(14.8 * s, 17.2 * s),
+      Offset(15.4 * s, 20.2 * s),
+      stroke,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ChickenBankPainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
 class IconBox extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
   final double size;
   final double radius;
   final double iconSize;
@@ -228,16 +376,28 @@ class IconBox extends StatelessWidget {
     this.color,
   });
 
+  const IconBox.chicken({
+    super.key,
+    this.size = 36,
+    this.radius = 12,
+    this.iconSize = 18,
+    this.color,
+  }) : icon = null;
+
   @override
   Widget build(BuildContext context) {
+    final effectiveColor = color ?? AppColors.inkSecondary;
     return Container(
       width: size,
       height: size,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
         color: glassFill(context),
         borderRadius: BorderRadius.circular(radius),
       ),
-      child: Icon(icon, size: iconSize, color: color ?? AppColors.inkSecondary),
+      child: icon != null
+          ? Icon(icon, size: iconSize, color: effectiveColor)
+          : ChickenBankIcon(size: iconSize, color: effectiveColor),
     );
   }
 }

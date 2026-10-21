@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/components/app_buttons.dart' show RRectInsetGlassPainter;
 import '../../core/components/fun_widgets.dart';
 import '../../core/components/app_glass_sheet.dart';
 import '../../core/database/detected_repository.dart';
@@ -24,28 +25,117 @@ class _DetectedCardState extends State<DetectedCard> {
 
   Future<void> _pickWallet(DetectedView d) async {
     final wallets = await getIt<WalletRepository>().watchWallets().first;
-    if (!mounted) return;
+    if (!mounted || wallets.isEmpty) return;
+    String selectedId = wallets.any((w) => w.id == d.walletId)
+        ? d.walletId!
+        : wallets.first.id;
+
     final picked = await AppGlassSheet.show<String>(
       context: context,
       builder: (ctx) => AppGlassSheet(
         title: 'Pindah ke Dompet',
         subtitle: 'Pilih dompet tujuan transaksi',
-        padding: EdgeInsets.zero,
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-          children: [
-            for (final w in wallets)
-              ListTile(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                leading: const Icon(Icons.account_balance_wallet_outlined, color: AppColors.accentBlue),
-                title: Text(w.name, style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.inkPrimary)),
-                trailing: w.id == d.walletId
-                    ? const Icon(Icons.check_rounded, color: AppColors.accentBlue)
-                    : null,
-                onTap: () => Navigator.pop(ctx, w.id),
+        child: StatefulBuilder(
+          builder: (context, setSheet) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const FunLabel('Dompet Tujuan'),
+              const SizedBox(height: 8),
+              Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: glassFill(context),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    width: 1.2,
+                  ),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: selectedId,
+                    isExpanded: true,
+                    borderRadius: BorderRadius.circular(16),
+                    dropdownColor: Colors.white.withValues(alpha: 0.96),
+                    icon: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: AppColors.inkSecondary,
+                    ),
+                    items: [
+                      for (final w in wallets)
+                        DropdownMenuItem<String>(
+                          value: w.id,
+                          child: Row(
+                            children: [
+                              Icon(
+                                switch (w.type) {
+                                  'bank' => Icons.account_balance_outlined,
+                                  'e_wallet' =>
+                                    Icons.account_balance_wallet_outlined,
+                                  _ => Icons.payments_outlined,
+                                },
+                                size: 18,
+                                color: AppColors.accentBlue,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  '${w.name} (${fmtRp(w.balance)})',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.inkPrimary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setSheet(() => selectedId = val);
+                      }
+                    },
+                  ),
+                ),
               ),
-          ],
+              const SizedBox(height: 20),
+              GestureDetector(
+                onTap: () => Navigator.pop(ctx, selectedId),
+                child: Container(
+                  height: 50,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    gradient: AppColors.primaryButtonGradient,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: const Color(0x66FFFFFF),
+                      width: 1.2,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x332563EB),
+                        blurRadius: 16,
+                        offset: Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: const Text(
+                    'Pindahkan',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -128,8 +218,10 @@ class _DetectedCardState extends State<DetectedCard> {
     final when = DateFormat('d MMM, HH.mm', 'id_ID').format(d.detectedAt);
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0xFFF1F5F9))),
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.65)),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -153,19 +245,34 @@ class _DetectedCardState extends State<DetectedCard> {
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w800,
-                      color: income ? AppColors.income : AppColors.expense,
+                      color: income ? AppColors.inkPrimary : AppColors.expense,
                     ),
                   ),
                 ),
               ),
-              _btn('Abaikan', AppColors.surfaceRaised, AppColors.inkSecondary,
-                  () => _repo.ignore(d.id)),
-              const SizedBox(width: 6),
-              _btn('Pindah', const Color(0xFFEEF2FF), AppColors.accentBlue,
-                  () => _pickWallet(d)),
-              const SizedBox(width: 6),
-              _btn('Catat', AppColors.inkPrimary, Colors.white,
-                  () => _repo.record(d.id)),
+              _iconBtn(
+                icon: Icons.delete_rounded,
+                tooltip: 'Abaikan',
+                iconColor: AppColors.expense,
+                borderColor: AppColors.expense.withValues(alpha: 0.55),
+                onTap: () => _repo.ignore(d.id),
+              ),
+              const SizedBox(width: 8),
+              _iconBtn(
+                icon: Icons.swap_horiz_rounded,
+                tooltip: 'Pindah Dompet',
+                iconColor: AppColors.accentBlue,
+                borderColor: const Color(0xFF94A3B8),
+                onTap: () => _pickWallet(d),
+              ),
+              const SizedBox(width: 8),
+              _iconBtn(
+                icon: Icons.edit_square,
+                tooltip: 'Catat',
+                iconColor: Colors.white,
+                aurora: true,
+                onTap: () => _repo.record(d.id),
+              ),
             ],
           ),
         ],
@@ -173,19 +280,62 @@ class _DetectedCardState extends State<DetectedCard> {
     );
   }
 
-  Widget _btn(String label, Color bg, Color fg, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 36,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        alignment: Alignment.center,
-        decoration:
-            BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
-        child: Text(label,
-            style: TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w700, color: fg)),
+  Widget _iconBtn({
+    required IconData icon,
+    required String tooltip,
+    required Color iconColor,
+    required VoidCallback onTap,
+    Color? borderColor,
+    bool aurora = false,
+  }) {
+    const double radius = 10;
+    final box = Container(
+      width: 36,
+      height: 36,
+      decoration: aurora
+          ? auroraActiveDecoration(radius: radius)
+          : BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.85),
+              borderRadius: BorderRadius.circular(radius),
+              border: Border.all(
+                color: borderColor ?? const Color(0xFFCBD5E1),
+                width: 1.1,
+              ),
+            ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: CustomPaint(
+          painter: aurora
+              ? const RRectInsetGlassPainter(radius: Radius.circular(radius))
+              : null,
+          child: Center(
+            child: Icon(
+              icon,
+              size: 18,
+              color: iconColor,
+              shadows: aurora
+                  ? const [
+                      Shadow(
+                        color: Color(0x33000000),
+                        blurRadius: 3,
+                        offset: Offset(0, 1),
+                      ),
+                    ]
+                  : null,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: box,
       ),
     );
   }
 }
+

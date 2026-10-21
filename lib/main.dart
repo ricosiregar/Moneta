@@ -11,7 +11,6 @@ import 'core/routes/routes.dart';
 import 'features/notifications/notification_capture_service.dart';
 import 'core/theme/app_colors.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
-import 'features/auth/presentation/bloc/auth_event.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -67,7 +66,6 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     _authBloc = getIt<AuthBloc>();
-    _authBloc.add(const AuthSubscriptionRequested());
     _router = AppRouter.createRouter(_authBloc);
   }
 

@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../../core/components/app_glass_dialog.dart';
@@ -195,8 +196,11 @@ class _CategoriesManagePageState extends State<CategoriesManagePage> {
                               width: 44,
                               height: 44,
                               decoration: BoxDecoration(
-                                color: activeThemeColor.withValues(alpha: 0.1),
+                                color: activeThemeColor.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.85),
+                                ),
                               ),
                               child: Icon(
                                 categoryIcon(cat.icon),
@@ -227,11 +231,15 @@ class _CategoriesManagePageState extends State<CategoriesManagePage> {
                                             horizontal: 7, vertical: 2),
                                         decoration: BoxDecoration(
                                           color: isDefault
-                                              ? AppColors.surfaceRaised
+                                              ? glassFill(context)
                                               : activeThemeColor
-                                                  .withValues(alpha: 0.1),
+                                                  .withValues(alpha: 0.12),
                                           borderRadius:
                                               BorderRadius.circular(6),
+                                          border: Border.all(
+                                            color: Colors.white
+                                                .withValues(alpha: 0.8),
+                                          ),
                                         ),
                                         child: Text(
                                           isDefault ? 'Bawaan' : 'Kustom',
@@ -271,50 +279,63 @@ class _CategoriesManagePageState extends State<CategoriesManagePage> {
           ],
         ),
       ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.9),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 10,
-              offset: const Offset(0, -4),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          top: false,
-          child: GestureDetector(
-            onTap: _openAddCategory,
-            child: Container(
-              height: 50,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: AppColors.accentBlue,
-                borderRadius: BorderRadius.circular(999),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.accentBlue.withValues(alpha: 0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+      bottomNavigationBar: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            decoration: BoxDecoration(
+              gradient: AppColors.glassSheetGradient,
+              border: const Border(
+                top: BorderSide(color: Colors.white, width: 1.2),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.add_rounded, color: Colors.white, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Tambah Kategori ${_selectedTab == 0 ? 'Pengeluaran' : 'Pemasukan'}',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 16,
+                  offset: const Offset(0, -4),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              top: false,
+              child: GestureDetector(
+                onTap: _openAddCategory,
+                child: Container(
+                  height: 50,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    gradient: AppColors.primaryButtonGradient,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: const Color(0x66FFFFFF),
+                      width: 1.2,
                     ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x332563EB),
+                        blurRadius: 14,
+                        offset: Offset(0, 5),
+                      ),
+                    ],
                   ),
-                ],
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.add_rounded,
+                          color: Colors.white, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Tambah Kategori ${_selectedTab == 0 ? 'Pengeluaran' : 'Pemasukan'}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),

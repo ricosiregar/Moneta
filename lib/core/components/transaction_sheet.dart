@@ -78,14 +78,6 @@ class _TransactionSheetState extends State<TransactionSheet> {
   }
 
   void _onAmountChanged(String val) {
-    final cleaned = val.replaceAll(RegExp(r'[^\d]'), '');
-    final formatted = cleaned.isEmpty
-        ? ''
-        : NumberFormat('#,###', 'id_ID').format(int.parse(cleaned));
-    _amountController.value = TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
     setState(() {});
   }
 
@@ -95,6 +87,27 @@ class _TransactionSheetState extends State<TransactionSheet> {
       initialDate: _date,
       firstDate: DateTime(2020),
       lastDate: DateTime(2035),
+      barrierColor: AppColors.glassScrim,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.accentBlue,
+              onPrimary: Colors.white,
+              surface: Color(0xF2FFFFFF),
+              onSurface: AppColors.inkPrimary,
+            ),
+            dialogTheme: DialogThemeData(
+              backgroundColor: Colors.white.withValues(alpha: 0.92),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(28),
+                side: const BorderSide(color: Colors.white, width: 1.5),
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null) setState(() => _date = picked);
   }
@@ -108,9 +121,7 @@ class _TransactionSheetState extends State<TransactionSheet> {
   }
 
   Future<void> _save() async {
-    final amount = double.tryParse(
-            _amountController.text.replaceAll(RegExp(r'[^\d]'), '')) ??
-        0;
+    final amount = parseMoney(_amountController.text);
     if (amount <= 0) {
       _toast('Isi nominal dulu');
       return;
@@ -119,11 +130,18 @@ class _TransactionSheetState extends State<TransactionSheet> {
       _toast('Buat dompet dulu di Profil \u2192 Kelola Dompet');
       return;
     }
+    final selectedWallet = _wallets[_wallet.clamp(0, _wallets.length - 1)];
+    if (_type == 0 && selectedWallet.balance < amount) {
+      _toast(
+        'Saldo ${selectedWallet.name} (${fmtRp(selectedWallet.balance)}) tidak mencukupi untuk pengeluaran ${fmtRp(amount)}',
+      );
+      return;
+    }
     final cats = _cats;
     final nav = Navigator.of(context);
     try {
       await getIt<FinanceRepository>().addTransaction(
-        walletId: _wallets[_wallet.clamp(0, _wallets.length - 1)].id,
+        walletId: selectedWallet.id,
         categoryId: cats.isEmpty ? null : cats[_category.clamp(0, cats.length - 1)].id,
         type: _type == 1 ? 'income' : 'expense',
         amount: amount,
@@ -141,9 +159,16 @@ class _TransactionSheetState extends State<TransactionSheet> {
     }
   }
 
+  IconData _walletTypeIcon(String type) => switch (type) {
+    'bank' => Icons.account_balance_outlined,
+    'e_wallet' => Icons.account_balance_wallet_outlined,
+    _ => Icons.payments_outlined,
+  };
+
   @override
   Widget build(BuildContext context) {
     final cats = _cats;
+    if (_wallet >= _wallets.length) _wallet = 0;
     if (_category >= cats.length) _category = 0;
 
     return AppGlassSheet(
@@ -193,6 +218,7 @@ class _TransactionSheetState extends State<TransactionSheet> {
                             controller: _amountController,
                             autofocus: true,
                             keyboardType: TextInputType.number,
+                            inputFormatters: const [RupiahInputFormatter()],
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               fontSize: 40,
@@ -224,53 +250,173 @@ class _TransactionSheetState extends State<TransactionSheet> {
 
             const FunLabel('Dompet'),
             const SizedBox(height: 8),
-            SizedBox(
-              height: 40,
-              child: _wallets.isEmpty
-                  ? const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Belum ada dompet \u2014 buat di Profil \u2192 Kelola Dompet',
-                        style: TextStyle(fontSize: 12, color: AppColors.inkMuted),
-                      ),
-                    )
-                  : ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _wallets.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 8),
-                      itemBuilder: (_, i) => FunPill(
-                        label: _wallets[i].name,
-                        selected: _wallet == i,
-                        onTap: () => setState(() => _wallet = i),
-                      ),
+            if (_wallets.isEmpty)
+              Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                alignment: Alignment.centerLeft,
+                decoration: BoxDecoration(
+                  color: glassFill(context),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    width: 1.2,
+                  ),
+                ),
+                child: const Text(
+                  'Belum ada dompet — buat di Profil → Kelola Dompet',
+                  style: TextStyle(fontSize: 12, color: AppColors.inkMuted),
+                ),
+              )
+            else
+              Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: glassFill(context),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    width: 1.2,
+                  ),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<int>(
+                    value: _wallet.clamp(0, _wallets.length - 1),
+                    isExpanded: true,
+                    borderRadius: BorderRadius.circular(16),
+                    dropdownColor: Colors.white.withValues(alpha: 0.96),
+                    icon: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: AppColors.inkSecondary,
                     ),
-            ),
+                    items: [
+                      for (int i = 0; i < _wallets.length; i++)
+                        DropdownMenuItem<int>(
+                          value: i,
+                          child: Row(
+                            children: [
+                              Icon(
+                                _walletTypeIcon(_wallets[i].type),
+                                size: 18,
+                                color: AppColors.accentBlue,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  '${_wallets[i].name} (${fmtRp(_wallets[i].balance)})',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.inkPrimary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() => _wallet = val);
+                      }
+                    },
+                  ),
+                ),
+              ),
             const SizedBox(height: 16),
 
             const FunLabel('Kategori'),
             const SizedBox(height: 8),
-            SizedBox(
-              height: 40,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: cats.length + 1,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (_, i) {
-                  if (i == cats.length) {
-                    return FunPill(
-                      label: '+ Kategori',
-                      icon: Icons.add_rounded,
-                      selected: false,
-                      onTap: _openManageCategories,
-                    );
-                  }
-                  return FunPill(
-                    label: cats[i].name,
-                    icon: categoryIcon(cats[i].icon),
-                    selected: _category == i,
-                    onTap: () => setState(() => _category = i),
-                  );
-                },
+            Container(
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: glassFill(context),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.9),
+                  width: 1.2,
+                ),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<int>(
+                  value: cats.isEmpty ? null : _category.clamp(0, cats.length - 1),
+                  isExpanded: true,
+                  borderRadius: BorderRadius.circular(16),
+                  dropdownColor: Colors.white.withValues(alpha: 0.96),
+                  icon: const Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: AppColors.inkSecondary,
+                  ),
+                  hint: const Text(
+                    'Pilih kategori...',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.inkMuted,
+                    ),
+                  ),
+                  items: [
+                    for (int i = 0; i < cats.length; i++)
+                      DropdownMenuItem<int>(
+                        value: i,
+                        child: Row(
+                          children: [
+                            Icon(
+                              categoryIcon(cats[i].icon),
+                              size: 18,
+                              color: AppColors.accentBlue,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                cats[i].name,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.inkPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const DropdownMenuItem<int>(
+                      value: -1,
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.add_circle_outline_rounded,
+                            size: 18,
+                            color: AppColors.accentBlue,
+                          ),
+                          SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              '+ Tambah / Kelola Kategori',
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.accentBlue,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  onChanged: (val) {
+                    if (val == -1) {
+                      _openManageCategories();
+                    } else if (val != null) {
+                      setState(() => _category = val);
+                    }
+                  },
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -284,13 +430,17 @@ class _TransactionSheetState extends State<TransactionSheet> {
                       height: 48,
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceRaised,
+                        color: glassFill(context),
                         borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          width: 1.2,
+                        ),
                       ),
                       child: Row(
                         children: [
                           const Icon(Icons.calendar_today_outlined,
-                              size: 16, color: AppColors.inkSecondary),
+                              size: 16, color: AppColors.accentBlue),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -313,13 +463,21 @@ class _TransactionSheetState extends State<TransactionSheet> {
                     height: 48,
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceRaised,
+                      color: glassFill(context),
                       borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        width: 1.2,
+                      ),
                     ),
                     alignment: Alignment.center,
                     child: TextField(
                       controller: _noteController,
-                      style: const TextStyle(fontSize: 13),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.inkPrimary,
+                      ),
                       decoration: const InputDecoration(
                         hintText: 'Catatan',
                         hintStyle:

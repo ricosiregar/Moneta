@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 
 import '../../core/components/app_glass_dialog.dart';
 import '../../core/components/app_toast.dart';
@@ -8,23 +6,6 @@ import '../../core/components/fun_widgets.dart';
 import '../../core/database/wallet_repository.dart';
 import '../../core/di/injection.dart';
 import '../../core/theme/app_colors.dart';
-
-/// Formatter ribuan untuk input nominal rupiah.
-class _ThousandsFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final digits = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
-    if (digits.isEmpty) return const TextEditingValue();
-    final text = NumberFormat('#,###', 'id_ID').format(int.parse(digits));
-    return TextEditingValue(
-      text: text,
-      selection: TextSelection.collapsed(offset: text.length),
-    );
-  }
-}
 
 /// Definisi ekosistem mitra perbankan digital.
 class _EcosystemPartner {
@@ -78,10 +59,7 @@ class _WalletFormPageState extends State<WalletFormPage> {
   late final _openingCtrl = TextEditingController(
     text: (widget.editing?.openingBalance ?? 0) == 0
         ? ''
-        : NumberFormat(
-            '#,###',
-            'id_ID',
-          ).format(widget.editing!.openingBalance.round()),
+        : fmtThousands(widget.editing!.openingBalance),
   );
 
   // 'cash' | 'bank' | 'e_wallet'
@@ -94,6 +72,7 @@ class _WalletFormPageState extends State<WalletFormPage> {
   // Selected ecosystem partners to auto-generate
   final Set<String> _selectedEcosystems = {};
   final Map<String, TextEditingController> _ecosystemOpeningCtrls = {};
+  bool _isCustomName = false;
 
   TextEditingController _getEcosystemOpeningCtrl(String name) {
     return _ecosystemOpeningCtrls.putIfAbsent(
@@ -115,6 +94,14 @@ class _WalletFormPageState extends State<WalletFormPage> {
   @override
   void initState() {
     super.initState();
+    final initialName = widget.editing?.name.trim() ?? '';
+    if (initialName.isNotEmpty && _type != 'cash') {
+      final presets = _type == 'bank' ? _bankPresets : _eWalletPresets;
+      final isPreset = presets.any(
+        (p) => p.toLowerCase() == initialName.toLowerCase(),
+      );
+      _isCustomName = !isPreset;
+    }
   }
 
   @override
@@ -128,12 +115,22 @@ class _WalletFormPageState extends State<WalletFormPage> {
     super.dispose();
   }
 
-  double _parseAmount(String text) =>
-      double.tryParse(text.replaceAll(RegExp(r'[^\d]'), '')) ?? 0;
+  double _parseAmount(String text) => parseMoney(text);
 
   void _onTypeChanged(String newType) {
     setState(() {
       _type = newType;
+      _isCustomName = false;
+      if (newType != 'cash') {
+        final presets = newType == 'bank' ? _bankPresets : _eWalletPresets;
+        final current = _nameCtrl.text.trim();
+        final matchesPreset = presets.any(
+          (p) => p.toLowerCase() == current.toLowerCase(),
+        );
+        if (!matchesPreset) {
+          _nameCtrl.clear();
+        }
+      }
       _selectedEcosystems.clear();
       for (final ctrl in _ecosystemOpeningCtrls.values) {
         ctrl.clear();
@@ -143,12 +140,12 @@ class _WalletFormPageState extends State<WalletFormPage> {
 
   void _selectPreset(String presetName) {
     setState(() {
+      _isCustomName = false;
       _nameCtrl.text = presetName;
       _selectedEcosystems.clear();
       for (final ctrl in _ecosystemOpeningCtrls.values) {
         ctrl.clear();
       }
-      // Bila memilih bank ekosistem dan saat ini statusnya parent, beri opsi ekosistem
     });
   }
 
@@ -355,15 +352,17 @@ class _WalletFormPageState extends State<WalletFormPage> {
                         height: 52,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: AppColors.accentBlue,
+                          gradient: AppColors.primaryButtonGradient,
                           borderRadius: BorderRadius.circular(999),
-                          boxShadow: [
+                          border: Border.all(
+                            color: const Color(0x66FFFFFF),
+                            width: 1.2,
+                          ),
+                          boxShadow: const [
                             BoxShadow(
-                              color: AppColors.accentBlue.withValues(
-                                alpha: 0.3,
-                              ),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
+                              color: Color(0x332563EB),
+                              blurRadius: 16,
+                              offset: Offset(0, 6),
                             ),
                           ],
                         ),
@@ -409,27 +408,17 @@ class _WalletFormPageState extends State<WalletFormPage> {
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: _type == types[i].$2
-                      ? AppColors.inkPrimary
-                      : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: _type == types[i].$2
-                        ? AppColors.inkPrimary
-                        : const Color(0xFFE2E8F0),
-                    width: _type == types[i].$2 ? 2 : 1,
-                  ),
-                  boxShadow: _type == types[i].$2
-                      ? [
-                          BoxShadow(
-                            color: AppColors.inkPrimary.withValues(alpha: 0.15),
-                            blurRadius: 8,
-                            offset: const Offset(0, 3),
-                          ),
-                        ]
-                      : null,
-                ),
+                decoration: _type == types[i].$2
+                    ? auroraActiveDecoration(radius: 16)
+                    : BoxDecoration(
+                        gradient: AppColors.glassCardGradient,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          width: 1.2,
+                        ),
+                        boxShadow: AppColors.glassShadowSoft,
+                      ),
                 child: Column(
                   children: [
                     Icon(
@@ -467,69 +456,171 @@ class _WalletFormPageState extends State<WalletFormPage> {
 
     if (_type == 'bank') {
       presets = _bankPresets;
-      hint = 'Pilih bank di atas atau ketik nama bank...';
-      labelText = '2. Pilih Bank atau Ketik Sendiri';
+      hint = 'Ketik nama bank (contoh: Bank Permata, CIMB Niaga)...';
+      labelText = '2. Pilih Bank';
     } else if (_type == 'e_wallet') {
       presets = _eWalletPresets;
-      hint = 'Pilih e-wallet di atas atau ketik sendiri...';
-      labelText = '2. Pilih E-Wallet atau Ketik Sendiri';
+      hint = 'Ketik nama e-wallet (contoh: LinkAja, i.saku)...';
+      labelText = '2. Pilih E-Wallet';
     } else {
       hint = 'Contoh: Dompet Harian, Uang Kas Tunai';
       labelText = '2. Nama Dompet Tunai';
     }
 
+    final currentName = _nameCtrl.text.trim();
+    final matchedPreset = presets
+        ?.where((p) => p.toLowerCase() == currentName.toLowerCase())
+        .firstOrNull;
+    final dropdownValue = _isCustomName ? '__custom__' : matchedPreset;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         FunLabel(labelText),
-        if (presets != null) ...[
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final p in presets)
-                FunPill(
-                  label: p,
-                  selected:
-                      _nameCtrl.text.trim().toLowerCase() ==
-                      p.trim().toLowerCase(),
-                  onTap: () => _selectPreset(p),
-                ),
-            ],
-          ),
-          const SizedBox(height: 10),
-        ],
         const SizedBox(height: 8),
-        Container(
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          alignment: Alignment.center,
-          child: TextField(
-            controller: _nameCtrl,
-            onChanged: (_) => setState(() {}),
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: AppColors.inkPrimary,
-            ),
-            decoration: InputDecoration(
-              hintText: hint,
-              hintStyle: const TextStyle(
-                color: AppColors.inkMuted,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
+        if (presets != null) ...[
+          Container(
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: glassFill(context),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.9),
+                width: 1.2,
               ),
-              border: InputBorder.none,
-              isDense: true,
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: dropdownValue,
+                isExpanded: true,
+                borderRadius: BorderRadius.circular(16),
+                dropdownColor: Colors.white.withValues(alpha: 0.96),
+                icon: const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: AppColors.inkSecondary,
+                ),
+                hint: Text(
+                  _type == 'bank'
+                      ? 'Pilih daftar bank...'
+                      : 'Pilih daftar e-wallet...',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.inkMuted,
+                  ),
+                ),
+                items: [
+                  for (final p in presets)
+                    DropdownMenuItem<String>(
+                      value: p,
+                      child: Row(
+                        children: [
+                          Icon(
+                            _type == 'bank'
+                                ? Icons.account_balance_outlined
+                                : Icons.account_balance_wallet_outlined,
+                            size: 18,
+                            color: AppColors.accentBlue,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              p,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.inkPrimary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  DropdownMenuItem<String>(
+                    value: '__custom__',
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.edit_outlined,
+                          size: 18,
+                          color: AppColors.inkSecondary,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _type == 'bank'
+                                ? 'Lainnya (Ketik nama bank sendiri)'
+                                : 'Lainnya (Ketik e-wallet sendiri)',
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.inkSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                onChanged: (val) {
+                  if (val == '__custom__') {
+                    setState(() {
+                      _isCustomName = true;
+                      if (matchedPreset != null) {
+                        _nameCtrl.clear();
+                      }
+                      _selectedEcosystems.clear();
+                      for (final ctrl in _ecosystemOpeningCtrls.values) {
+                        ctrl.clear();
+                      }
+                    });
+                  } else if (val != null) {
+                    _selectPreset(val);
+                  }
+                },
+              ),
             ),
           ),
-        ),
+        ],
+        if (presets == null || _isCustomName) ...[
+          if (presets != null) const SizedBox(height: 10),
+          Container(
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: glassFill(context),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.9),
+                width: 1.2,
+              ),
+            ),
+            alignment: Alignment.center,
+            child: TextField(
+              controller: _nameCtrl,
+              autofocus: presets != null && _isCustomName,
+              onChanged: (_) => setState(() {}),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppColors.inkPrimary,
+              ),
+              decoration: InputDecoration(
+                hintText: hint,
+                hintStyle: const TextStyle(
+                  color: AppColors.inkMuted,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+                border: InputBorder.none,
+                isDense: true,
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -539,15 +630,18 @@ class _WalletFormPageState extends State<WalletFormPage> {
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: glassFill(context),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.9),
+          width: 1.2,
+        ),
       ),
       alignment: Alignment.center,
       child: TextField(
         controller: _openingCtrl,
         keyboardType: TextInputType.number,
-        inputFormatters: [_ThousandsFormatter()],
+        inputFormatters: const [RupiahInputFormatter()],
         style: const TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w800,
@@ -587,7 +681,7 @@ class _WalletFormPageState extends State<WalletFormPage> {
           children: [
             Expanded(
               child: FunPill(
-                label: '👑 Dompet Parent',
+                label: 'Dompet Parent',
                 selected: _isParent,
                 onTap: () => setState(() {
                   _isParent = true;
@@ -598,7 +692,7 @@ class _WalletFormPageState extends State<WalletFormPage> {
             const SizedBox(width: 10),
             Expanded(
               child: FunPill(
-                label: '🔗 Dompet Child',
+                label: 'Dompet Child',
                 selected: !_isParent,
                 onTap: _hasChildren
                     ? null
@@ -620,10 +714,11 @@ class _WalletFormPageState extends State<WalletFormPage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.warningLight,
-              borderRadius: BorderRadius.circular(12),
+              color: AppColors.warningLight.withValues(alpha: 0.78),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: AppColors.warning.withValues(alpha: 0.3),
+                color: Colors.white.withValues(alpha: 0.9),
+                width: 1.2,
               ),
             ),
             child: const Text(
@@ -635,8 +730,12 @@ class _WalletFormPageState extends State<WalletFormPage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(12),
+              color: glassFill(context),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.9),
+                width: 1.2,
+              ),
             ),
             child: const Text(
               'Dompet Parent adalah rekening induk (sumber pendapatan/gaji) yang dapat mengalokasikan saldo ke dompet-dompet anak.',
@@ -660,10 +759,11 @@ class _WalletFormPageState extends State<WalletFormPage> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppColors.warningLight,
-                borderRadius: BorderRadius.circular(12),
+                color: AppColors.warningLight.withValues(alpha: 0.78),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: AppColors.warning.withValues(alpha: 0.4),
+                  color: Colors.white.withValues(alpha: 0.9),
+                  width: 1.2,
                 ),
               ),
               child: const Row(
@@ -701,17 +801,16 @@ class _WalletFormPageState extends State<WalletFormPage> {
                         horizontal: 14,
                         vertical: 8,
                       ),
-                      decoration: BoxDecoration(
-                        color: _parentId == p.id
-                            ? AppColors.inkPrimary
-                            : Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: _parentId == p.id
-                              ? AppColors.inkPrimary
-                              : const Color(0xFFE2E8F0),
-                        ),
-                      ),
+                      decoration: _parentId == p.id
+                          ? auroraActiveDecoration(radius: 12)
+                          : BoxDecoration(
+                              color: glassFill(context),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.9),
+                                width: 1.2,
+                              ),
+                            ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -741,7 +840,7 @@ class _WalletFormPageState extends State<WalletFormPage> {
                             style: TextStyle(
                               fontSize: 11,
                               color: _parentId == p.id
-                                  ? Colors.white.withValues(alpha: 0.8)
+                                  ? Colors.white.withValues(alpha: 0.85)
                                   : AppColors.inkMuted,
                             ),
                           ),
@@ -757,13 +856,8 @@ class _WalletFormPageState extends State<WalletFormPage> {
   }
 
   Widget _buildEcosystemSection(List<_EcosystemPartner> partners) {
-    return Container(
+    return FunCard(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFCBD5E1)),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -803,14 +897,14 @@ class _WalletFormPageState extends State<WalletFormPage> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: isChecked
-                        ? Colors.white
-                        : Colors.white.withValues(alpha: 0.6),
+                        ? Colors.white.withValues(alpha: 0.85)
+                        : glassFill(context),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: isChecked
                           ? AppColors.accentBlue
-                          : const Color(0xFFE2E8F0),
-                      width: isChecked ? 1.5 : 1,
+                          : Colors.white.withValues(alpha: 0.9),
+                      width: isChecked ? 1.5 : 1.1,
                     ),
                     boxShadow: isChecked
                         ? [
@@ -894,9 +988,11 @@ class _WalletFormPageState extends State<WalletFormPage> {
                           height: 44,
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
+                            color: glassFill(context),
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.9),
+                            ),
                           ),
                           child: Row(
                             children: [
@@ -922,9 +1018,8 @@ class _WalletFormPageState extends State<WalletFormPage> {
                                 child: TextField(
                                   controller: _getEcosystemOpeningCtrl(p.name),
                                   keyboardType: TextInputType.number,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                    _ThousandsFormatter(),
+                                  inputFormatters: const [
+                                    RupiahInputFormatter(),
                                   ],
                                   style: const TextStyle(
                                     fontSize: 13,
@@ -963,9 +1058,12 @@ class _WalletFormPageState extends State<WalletFormPage> {
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: glassFill(context),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.9),
+          width: 1.2,
+        ),
       ),
       alignment: Alignment.center,
       child: TextField(

@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../routes/routes.dart';
 import '../theme/app_colors.dart';
 import '../utils/app_error_formatter.dart';
+import 'app_buttons.dart' show RRectInsetGlassPainter;
 
 enum ToastType { success, error, warning, info }
 
@@ -238,6 +240,7 @@ class _TopToastWidgetState extends State<_TopToastWidget>
   @override
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.of(context).padding.top;
+    const toastRadius = Radius.circular(22);
 
     return Positioned(
       top: topPadding + 10,
@@ -263,101 +266,154 @@ class _TopToastWidgetState extends State<_TopToastWidget>
               }
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: _accentColor.withValues(alpha: 0.35),
-                  width: 1.2,
-                ),
+                borderRadius: const BorderRadius.all(toastRadius),
                 boxShadow: [
                   BoxShadow(
-                    color: _accentColor.withValues(alpha: 0.12),
-                    blurRadius: 18,
-                    offset: const Offset(0, 6),
+                    color: _accentColor.withValues(alpha: 0.16),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
                   ),
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
+                  const BoxShadow(
+                    color: Color(0x140F172A),
+                    blurRadius: 16,
+                    offset: Offset(0, 4),
                   ),
                 ],
               ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Icon badge with tinted background
-                  Container(
-                    width: 38,
-                    height: 38,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.all(toastRadius),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
-                      color: _bgColor,
-                      borderRadius: BorderRadius.circular(12),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.white.withValues(alpha: 0.88),
+                          _bgColor.withValues(alpha: 0.78),
+                          Colors.white.withValues(alpha: 0.72),
+                        ],
+                        stops: const [0.0, 0.55, 1.0],
+                      ),
+                      borderRadius: const BorderRadius.all(toastRadius),
                       border: Border.all(
-                        color: _accentColor.withValues(alpha: 0.2),
-                        width: 1,
+                        color: Colors.white.withValues(alpha: 0.92),
+                        width: 1.4,
                       ),
                     ),
-                    child: Center(
-                      child: Icon(
-                        _icon,
-                        color: _accentColor,
-                        size: 20,
+                    child: CustomPaint(
+                      painter: RRectInsetGlassPainter(
+                        radius: toastRadius,
+                        highlightColor: const Color(0xF0FFFFFF),
+                        shadowColor: _accentColor.withValues(alpha: 0.12),
+                        glowColor: Colors.white.withValues(alpha: 0.25),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-
-                  // Text content
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (widget.title != null) ...[
-                          Text(
-                            widget.title!,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: _accentColor,
-                              letterSpacing: -0.2,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          // Frosted glass icon badge with glowing border
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Colors.white.withValues(alpha: 0.92),
+                                  _accentColor.withValues(alpha: 0.16),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(13),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.95),
+                                width: 1.2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: _accentColor.withValues(alpha: 0.18),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: Icon(
+                                _icon,
+                                color: _accentColor,
+                                size: 20,
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 2),
-                        ],
-                        Text(
-                          widget.message,
-                          style: const TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.inkPrimary,
-                            height: 1.35,
+                          const SizedBox(width: 12),
+
+                          // Text content
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (widget.title != null) ...[
+                                  Text(
+                                    widget.title!,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                      color: _accentColor,
+                                      letterSpacing: -0.2,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                ],
+                                Text(
+                                  widget.message,
+                                  style: const TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.inkPrimary,
+                                    height: 1.35,
+                                  ),
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
                           ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
 
-                  const SizedBox(width: 8),
+                          const SizedBox(width: 8),
 
-                  // Close button
-                  GestureDetector(
-                    onTap: _handleDismiss,
-                    behavior: HitTestBehavior.opaque,
-                    child: Padding(
-                      padding: const EdgeInsets.all(4.0),
-                      child: Icon(
-                        Icons.close_rounded,
-                        size: 18,
-                        color: AppColors.inkMuted.withValues(alpha: 0.8),
+                          // Frosted close button pill
+                          GestureDetector(
+                            onTap: _handleDismiss,
+                            behavior: HitTestBehavior.opaque,
+                            child: Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.65),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.close_rounded,
+                                size: 15,
+                                color: AppColors.inkMuted.withValues(alpha: 0.9),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ),

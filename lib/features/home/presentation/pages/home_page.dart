@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../core/components/app_glass_dialog.dart';
 import '../../../../core/components/app_glass_sheet.dart';
 import '../../../../core/components/app_toast.dart';
 import '../../../../core/components/aurora_header.dart';
@@ -115,7 +116,6 @@ class _DashboardBodyState extends State<_DashboardBody> {
   ];
   List<BudgetView> _budgets = const [];
   List<CategoryView> _expenseCats = const [];
-  List<AutoScheduleView> _autoSchedules = const [];
   List<_Goal> _goals = const [];
   final List<StreamSubscription<dynamic>> _subs = [];
   final List<StreamSubscription<dynamic>> _summarySubs = [];
@@ -228,11 +228,6 @@ class _DashboardBodyState extends State<_DashboardBody> {
       }),
     );
     _subs.add(
-      fin.watchAutoSchedules().listen((schedules) {
-        if (mounted) setState(() => _autoSchedules = schedules);
-      }),
-    );
-    _subs.add(
       fin.watchJars().listen((jars) {
         if (!mounted) return;
         setState(
@@ -274,6 +269,58 @@ class _DashboardBodyState extends State<_DashboardBody> {
     );
   }
 
+  Future<void> _confirmDeleteBudget(
+    BudgetView budget, {
+    BuildContext? sheetContext,
+  }) async {
+    final ok = await AppGlassDialog.show(
+      context: context,
+      icon: Icons.delete_outline_rounded,
+      title: 'Hapus Rencana Anggaran?',
+      message:
+          'Yakin ingin menghapus anggaran kategori "${budget.categoryName}" (${fmtRp(budget.limit)})?',
+      confirmLabel: 'Ya, Hapus',
+      cancelLabel: 'Batal',
+      isDestructive: true,
+    );
+    if (ok != true || !mounted) return;
+    await getIt<FinanceRepository>().deleteBudget(budget.id);
+    if (sheetContext != null && sheetContext.mounted) {
+      Navigator.pop(sheetContext);
+    }
+    if (!mounted) return;
+    AppToast.showSuccess(
+      context,
+      'Anggaran "${budget.categoryName}" berhasil dihapus',
+    );
+  }
+
+  Future<void> _confirmDeleteGoal(
+    _Goal goal, {
+    BuildContext? sheetContext,
+  }) async {
+    final ok = await AppGlassDialog.show(
+      context: context,
+      icon: Icons.delete_outline_rounded,
+      title: 'Hapus Celengan Digital?',
+      message:
+          'Yakin ingin menghapus celengan "${goal.name}"? Data tabungan ini akan dihapus.',
+      confirmLabel: 'Ya, Hapus',
+      cancelLabel: 'Batal',
+      isDestructive: true,
+    );
+    if (ok != true || !mounted) return;
+    await getIt<FinanceRepository>().deleteJar(goal.id);
+    if (sheetContext != null && sheetContext.mounted) {
+      Navigator.pop(sheetContext);
+    }
+    if (!mounted) return;
+    AppToast.showSuccess(
+      context,
+      'Celengan "${goal.name}" berhasil dihapus',
+    );
+  }
+
   void _showGoalSheet({_Goal? deposit}) {
     final nameC = TextEditingController();
     final amountC = TextEditingController();
@@ -281,20 +328,26 @@ class _DashboardBodyState extends State<_DashboardBody> {
     AppGlassSheet.show(
       context: context,
       builder: (ctx) => AppGlassSheet(
-        title: deposit == null ? 'Buat Tabungan Baru' : 'Setor ke ${deposit.name}',
-        subtitle: deposit == null ? 'Target tabungan impianmu' : 'Alokasikan dana tabungan',
+        title: deposit == null
+            ? 'Buat Celengan Digital'
+            : 'Setor ke ${deposit.name}',
+        subtitle: deposit == null
+            ? 'Target celengan impianmu'
+            : 'Alokasikan dana ke celengan digital',
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (deposit == null) ...[
-                const FunLabel('Nama tabungan'),
+                const FunLabel('Nama celengan'),
                 const SizedBox(height: 6),
                 _SheetField(controller: nameC, hint: 'Contoh: Beli Laptop'),
                 const SizedBox(height: 12),
               ],
-              FunLabel(deposit == null ? 'Target (Rp)' : 'Nominal setoran (Rp)'),
+              FunLabel(
+                deposit == null ? 'Target (Rp)' : 'Nominal setoran (Rp)',
+              ),
               const SizedBox(height: 6),
               _SheetField(
                 controller: amountC,
@@ -329,17 +382,31 @@ class _DashboardBodyState extends State<_DashboardBody> {
               const SizedBox(height: 24),
               GestureDetector(
                 onTap: () {
-                  final v =
-                      double.tryParse(
-                        amountC.text.replaceAll(RegExp(r'[^\d]'), ''),
-                      ) ??
-                      0;
-                  if (v <= 0) return;
+                  final v = parseMoney(amountC.text);
+                  if (v <= 0) {
+                    AppToast.showWarning(
+                      context,
+                      'Masukkan nominal terlebih dahulu',
+                    );
+                    return;
+                  }
+                  if (deposit != null && walletId != null) {
+                    final fromWallet = _walletViews
+                        .where((w) => w.id == walletId)
+                        .firstOrNull;
+                    if (fromWallet != null && fromWallet.balance < v) {
+                      AppToast.showWarning(
+                        context,
+                        'Saldo ${fromWallet.name} (${fmtRp(fromWallet.balance)}) tidak mencukupi untuk setoran ${fmtRp(v)}',
+                      );
+                      return;
+                    }
+                  }
                   final repo = getIt<FinanceRepository>();
                   if (deposit == null) {
                     final n = nameC.text.trim();
                     repo.addJar(
-                      title: n.isEmpty ? 'Tabungan Baru' : n,
+                      title: n.isEmpty ? 'Celengan Baru' : n,
                       target: v,
                     );
                   } else {
@@ -370,7 +437,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
                     ],
                   ),
                   child: Text(
-                    deposit == null ? 'Buat Tabungan' : 'Setor Sekarang',
+                    deposit == null ? 'Buat Celengan' : 'Setor Sekarang',
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -379,6 +446,19 @@ class _DashboardBodyState extends State<_DashboardBody> {
                   ),
                 ),
               ),
+              if (deposit != null) ...[
+                const SizedBox(height: 8),
+                Center(
+                  child: TextButton(
+                    onPressed: () =>
+                        _confirmDeleteGoal(deposit, sheetContext: ctx),
+                    child: const Text(
+                      'Hapus celengan digital',
+                      style: TextStyle(color: AppColors.expense),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -386,72 +466,19 @@ class _DashboardBodyState extends State<_DashboardBody> {
     );
   }
 
-  static const _shortMonths = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'Mei',
-    'Jun',
-    'Jul',
-    'Agu',
-    'Sep',
-    'Okt',
-    'Nov',
-    'Des',
-  ];
-
   void _showBudgetSheet({BudgetView? editing}) {
     final amountC = TextEditingController(
-      text: editing == null ? '' : editing.limit.round().toString(),
+      text: editing == null ? '' : fmtThousands(editing.limit),
     );
     String? categoryId = editing?.categoryId;
-
-    final existingAuto = editing == null
-        ? null
-        : _autoSchedules
-              .where(
-                (s) =>
-                    s.budgetId == editing.id ||
-                    (editing.categoryId != null &&
-                        s.categoryId == editing.categoryId),
-              )
-              .firstOrNull;
-
-    bool enableAuto = existingAuto != null ? existingAuto.isEnabled : false;
-    String autoKind = existingAuto?.kind ?? 'expense';
-    int dayOfMonth = existingAuto?.dayOfMonth ?? 1;
-    final autoTitleC = TextEditingController(
-      text: existingAuto?.title ?? '',
-    );
-    final autoAmountC = TextEditingController(
-      text: existingAuto != null ? existingAuto.amount.round().toString() : '',
-    );
-    String? fromWalletId =
-        existingAuto?.walletId ??
-        (_walletViews.isNotEmpty ? _walletViews.first.id : null);
-    String? toWalletId =
-        existingAuto?.toWalletId ??
-        (_walletViews.length > 1
-            ? _walletViews.firstWhere((w) => w.id != fromWalletId).id
-            : null);
-    bool executeNow = false;
 
     AppGlassSheet.show(
       context: context,
       builder: (ctx) => AppGlassSheet(
         title: editing == null ? 'Rencana Anggaran' : 'Ubah Anggaran',
-        subtitle: 'Atur batas pengeluaran & jadwal auto-transfer bulanan',
+        subtitle: 'Atur batas pengeluaran bulanan per kategori',
         child: StatefulBuilder(
           builder: (c, setSheet) {
-            final selectedCatName = _expenseCats
-                .where((cat) => cat.id == categoryId)
-                .firstOrNull
-                ?.name;
-            final now = DateTime.now();
-            final alreadyExecuted =
-                existingAuto?.isExecutedForMonth(now) ?? false;
-
             return SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
               child: Column(
@@ -478,12 +505,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
                           selected: categoryId == cat.id,
                           onTap: editing != null
                               ? null
-                              : () => setSheet(() {
-                                  categoryId = cat.id;
-                                  if (autoTitleC.text.trim().isEmpty) {
-                                    autoTitleC.text = 'Bayar ${cat.name}';
-                                  }
-                                }),
+                              : () => setSheet(() => categoryId = cat.id),
                         ),
                     ],
                   ),
@@ -496,307 +518,28 @@ class _DashboardBodyState extends State<_DashboardBody> {
                     number: true,
                     autofocus: editing == null,
                   ),
-                  const SizedBox(height: 16),
-
-                  // ── Toggle Auto-Transfer / Pembayaran Otomatis ──
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: enableAuto
-                          ? const Color(0xFFEFF6FF)
-                          : AppColors.surfaceRaised,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: enableAuto
-                            ? AppColors.accentBlue.withValues(alpha: 0.45)
-                            : const Color(0xFFE2E8F0),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: enableAuto
-                                    ? AppColors.accentBlue
-                                    : Colors.white,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                Icons.event_repeat_rounded,
-                                size: 18,
-                                color: enableAuto
-                                    ? Colors.white
-                                    : AppColors.inkSecondary,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Auto-Transfer / Bayar Otomatis',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.inkPrimary,
-                                    ),
-                                  ),
-                                  Text(
-                                    'Otomatis jalan setiap tanggal yang diatur (misal bayar kost tgl 1)',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: AppColors.inkMuted,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Switch(
-                              value: enableAuto,
-                              activeThumbColor: AppColors.accentBlue,
-                              onChanged: (v) => setSheet(() {
-                                enableAuto = v;
-                                if (v && autoTitleC.text.trim().isEmpty) {
-                                  autoTitleC.text = selectedCatName != null
-                                      ? 'Bayar $selectedCatName'
-                                      : 'Bayar Kost';
-                                }
-                              }),
-                            ),
-                          ],
-                        ),
-                        if (enableAuto) ...[
-                          const SizedBox(height: 14),
-                          const Divider(height: 1, color: Color(0xFFDBEAFE)),
-                          const SizedBox(height: 12),
-                          if (_walletViews.isEmpty)
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: AppColors.warningLight,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Text(
-                                'Tambahkan dompet terlebih dahulu di menu Dompet agar auto-transfer dapat memotong saldo.',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.inkPrimary,
-                                ),
-                              ),
-                            )
-                          else ...[
-                            const FunLabel('Jenis Otomatis'),
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: FunPill(
-                                    label: 'Potong Saldo / Bayar',
-                                    icon: Icons.receipt_long_rounded,
-                                    selected: autoKind == 'expense',
-                                    onTap: () =>
-                                        setSheet(() => autoKind = 'expense'),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: FunPill(
-                                    label: 'Pindah Dompet',
-                                    icon: Icons.swap_horiz_rounded,
-                                    selected: autoKind == 'transfer',
-                                    onTap: _walletViews.length < 2
-                                        ? null
-                                        : () => setSheet(
-                                            () => autoKind = 'transfer',
-                                          ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            const FunLabel('Nama Pembayaran / Auto-Transfer'),
-                            const SizedBox(height: 6),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: [
-                                for (final preset in const [
-                                  'Bayar Kost',
-                                  'Listrik & Air',
-                                  'WiFi / Internet',
-                                  'Cicilan / Tagihan',
-                                ])
-                                  FunPill(
-                                    label: preset,
-                                    selected:
-                                        autoTitleC.text.trim().toLowerCase() ==
-                                        preset.toLowerCase(),
-                                    onTap: () =>
-                                        setSheet(() => autoTitleC.text = preset),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            _SheetField(
-                              controller: autoTitleC,
-                              hint: 'Contoh: Bayar Kost Bulanan',
-                            ),
-                            const SizedBox(height: 12),
-                            FunLabel('Setiap Tanggal ($dayOfMonth setiap bulan)'),
-                            const SizedBox(height: 6),
-                            _DayOfMonthSelector(
-                              selectedDay: dayOfMonth,
-                              onChanged: (d) => setSheet(() => dayOfMonth = d),
-                            ),
-                            const SizedBox(height: 12),
-                            const FunLabel(
-                              'Nominal Otomatis (Kosongkan = ikut batas anggaran)',
-                            ),
-                            const SizedBox(height: 6),
-                            _SheetField(
-                              controller: autoAmountC,
-                              hint: 'Ikuti nominal anggaran di atas',
-                              number: true,
-                            ),
-                            const SizedBox(height: 12),
-                            FunLabel(
-                              autoKind == 'transfer'
-                                  ? 'Dari Dompet Asal'
-                                  : 'Potong dari Dompet',
-                            ),
-                            const SizedBox(height: 6),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                for (final w in _walletViews)
-                                  FunPill(
-                                    label: w.name,
-                                    selected: fromWalletId == w.id,
-                                    onTap: () => setSheet(() {
-                                      fromWalletId = w.id;
-                                      if (toWalletId == w.id) {
-                                        toWalletId = _walletViews
-                                            .where((x) => x.id != w.id)
-                                            .firstOrNull
-                                            ?.id;
-                                      }
-                                    }),
-                                  ),
-                              ],
-                            ),
-                            if (autoKind == 'transfer' &&
-                                _walletViews.length > 1) ...[
-                              const SizedBox(height: 12),
-                              const FunLabel('Ke Dompet Tujuan'),
-                              const SizedBox(height: 6),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  for (final w in _walletViews)
-                                    if (w.id != fromWalletId)
-                                      FunPill(
-                                        label: w.name,
-                                        selected: toWalletId == w.id,
-                                        onTap: () =>
-                                            setSheet(() => toWalletId = w.id),
-                                      ),
-                                ],
-                              ),
-                            ],
-                            if (!alreadyExecuted && dayOfMonth <= now.day) ...[
-                              const SizedBox(height: 10),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      dayOfMonth == now.day
-                                          ? 'Hari ini tanggal $dayOfMonth • langsung jalankan untuk bulan ini'
-                                          : 'Tanggal $dayOfMonth sudah lewat bulan ini • jalankan juga sekarang?',
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.inkSecondary,
-                                      ),
-                                    ),
-                                  ),
-                                  Switch(
-                                    value:
-                                        dayOfMonth == now.day || executeNow,
-                                    activeThumbColor: AppColors.accentBlue,
-                                    onChanged: (v) =>
-                                        setSheet(() => executeNow = v),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ],
-                        ],
-                      ],
-                    ),
-                  ),
                   const SizedBox(height: 20),
                   GestureDetector(
                     onTap: () async {
-                      final v =
-                          double.tryParse(
-                            amountC.text.replaceAll(RegExp(r'[^\d]'), ''),
-                          ) ??
-                          0;
-                      if (v <= 0) return;
+                      final v = parseMoney(amountC.text);
+                      if (v <= 0) {
+                        AppToast.showWarning(
+                          context,
+                          'Masukkan batas anggaran terlebih dahulu',
+                        );
+                        return;
+                      }
                       final now = DateTime.now();
                       final repo = getIt<FinanceRepository>();
                       final nav = Navigator.of(ctx);
 
-                      final savedBudgetId = await repo.saveBudget(
+                      await repo.saveBudget(
                         id: editing?.id,
                         categoryId: categoryId,
                         limit: v,
                         month: now.month,
                         year: now.year,
                       );
-
-                      if (enableAuto && fromWalletId != null) {
-                        final customAutoAmt =
-                            double.tryParse(
-                              autoAmountC.text.replaceAll(RegExp(r'[^\d]'), ''),
-                            ) ??
-                            0;
-                        final autoAmt = customAutoAmt > 0 ? customAutoAmt : v;
-                        final fallbackTitle = selectedCatName != null
-                            ? 'Bayar $selectedCatName'
-                            : 'Bayar Kost';
-                        final runNow =
-                            !alreadyExecuted &&
-                            (dayOfMonth == now.day || executeNow);
-
-                        await repo.saveAutoSchedule(
-                          id: existingAuto?.id,
-                          title: autoTitleC.text.trim().isEmpty
-                              ? fallbackTitle
-                              : autoTitleC.text.trim(),
-                          kind: autoKind,
-                          amount: autoAmt,
-                          dayOfMonth: dayOfMonth,
-                          walletId: fromWalletId!,
-                          toWalletId: autoKind == 'transfer'
-                              ? toWalletId
-                              : null,
-                          categoryId: categoryId,
-                          budgetId: savedBudgetId,
-                          isEnabled: true,
-                          executeNowForCurrentMonth: runNow,
-                        );
-                      } else if (!enableAuto && existingAuto != null) {
-                        await repo.toggleAutoSchedule(existingAuto.id, false);
-                      }
 
                       nav.pop();
                     },
@@ -832,10 +575,8 @@ class _DashboardBodyState extends State<_DashboardBody> {
                     const SizedBox(height: 8),
                     Center(
                       child: TextButton(
-                        onPressed: () {
-                          getIt<FinanceRepository>().deleteBudget(editing.id);
-                          Navigator.pop(ctx);
-                        },
+                        onPressed: () =>
+                            _confirmDeleteBudget(editing, sheetContext: ctx),
                         child: const Text(
                           'Hapus anggaran',
                           style: TextStyle(color: AppColors.expense),
@@ -852,415 +593,11 @@ class _DashboardBodyState extends State<_DashboardBody> {
     );
   }
 
-  void _showAutoScheduleSheet({AutoScheduleView? editing}) {
-    final titleC = TextEditingController(text: editing?.title ?? '');
-    final amountC = TextEditingController(
-      text: editing == null ? '' : editing.amount.round().toString(),
-    );
-    final noteC = TextEditingController(text: editing?.note ?? '');
-    String kind = editing?.kind ?? 'expense';
-    int dayOfMonth = editing?.dayOfMonth ?? 1;
-    String? fromWalletId =
-        editing?.walletId ??
-        (_walletViews.isNotEmpty ? _walletViews.first.id : null);
-    String? toWalletId =
-        editing?.toWalletId ??
-        (_walletViews.length > 1
-            ? _walletViews.firstWhere((w) => w.id != fromWalletId).id
-            : null);
-    String? categoryId =
-        editing?.categoryId ??
-        (_expenseCats.isNotEmpty
-            ? (_expenseCats
-                      .where((c) => c.name.toLowerCase() == 'tagihan')
-                      .firstOrNull
-                      ?.id ??
-                  _expenseCats.first.id)
-            : null);
-    final now = DateTime.now();
-    final alreadyExecuted = editing?.isExecutedForMonth(now) ?? false;
-    bool executeNow = !alreadyExecuted && dayOfMonth == now.day;
-
-    AppGlassSheet.show(
-      context: context,
-      builder: (ctx) => AppGlassSheet(
-        title: editing == null
-            ? 'Atur Auto-Transfer / Rutin'
-            : 'Ubah Jadwal Otomatis',
-        subtitle:
-            'Otomatis bayar tagihan atau pindah saldo setiap tanggal pilihanmu',
-        child: StatefulBuilder(
-          builder: (c, setSheet) => SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (_walletViews.isEmpty) ...[
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.warningLight,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: AppColors.warning.withValues(alpha: 0.4),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Kamu belum memiliki dompet aktif. Tambahkan dompet terlebih dahulu agar fitur Auto-Transfer dapat berjalan.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.inkPrimary,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        FunPill(
-                          label: 'Buka Menu Dompet',
-                          icon: Icons.account_balance_wallet_outlined,
-                          selected: true,
-                          onTap: () {
-                            Navigator.pop(ctx);
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const WalletsPage(),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                ] else ...[
-                  const FunLabel('1. Jenis Transaksi Otomatis'),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FunPill(
-                          label: 'Bayar / Pengeluaran',
-                          icon: Icons.receipt_long_rounded,
-                          selected: kind == 'expense',
-                          onTap: () => setSheet(() => kind = 'expense'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: FunPill(
-                          label: 'Transfer Dompet',
-                          icon: Icons.swap_horiz_rounded,
-                          selected: kind == 'transfer',
-                          onTap: _walletViews.length < 2
-                              ? () => AppToast.showWarning(
-                                  context,
-                                  'Butuh minimal 2 dompet untuk transfer antar dompet',
-                                )
-                              : () => setSheet(() => kind = 'transfer'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  const FunLabel('2. Nama Jadwal (Pilih cepat atau ketik)'),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      for (final preset in const [
-                        'Bayar Kost',
-                        'Listrik & Air',
-                        'WiFi / Internet',
-                        'Paket Data',
-                        'Alokasi Tabungan',
-                      ])
-                        FunPill(
-                          label: preset,
-                          selected:
-                              titleC.text.trim().toLowerCase() ==
-                              preset.toLowerCase(),
-                          onTap: () => setSheet(() => titleC.text = preset),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  _SheetField(
-                    controller: titleC,
-                    hint: kind == 'transfer'
-                        ? 'Contoh: Pindah Saldo Kost / Tabungan'
-                        : 'Contoh: Bayar Kost-kostan',
-                  ),
-                  const SizedBox(height: 14),
-                  const FunLabel('3. Nominal (Rp)'),
-                  const SizedBox(height: 6),
-                  _SheetField(
-                    controller: amountC,
-                    hint: 'Contoh: 1500000',
-                    number: true,
-                  ),
-                  const SizedBox(height: 14),
-                  FunLabel(
-                    '4. Tanggal Eksekusi: Setiap Tanggal $dayOfMonth',
-                    icon: Icons.calendar_today_rounded,
-                  ),
-                  const SizedBox(height: 6),
-                  _DayOfMonthSelector(
-                    selectedDay: dayOfMonth,
-                    onChanged: (d) => setSheet(() {
-                      dayOfMonth = d;
-                      if (!alreadyExecuted && d == now.day) {
-                        executeNow = true;
-                      }
-                    }),
-                  ),
-                  const SizedBox(height: 14),
-                  FunLabel(
-                    kind == 'transfer'
-                        ? '5. Dari Dompet Asal'
-                        : '5. Potong Saldo dari Dompet',
-                  ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final w in _walletViews)
-                        FunPill(
-                          label: '${w.name} (${fmtRp(w.balance)})',
-                          selected: fromWalletId == w.id,
-                          onTap: () => setSheet(() {
-                            fromWalletId = w.id;
-                            if (toWalletId == w.id) {
-                              toWalletId = _walletViews
-                                  .where((x) => x.id != w.id)
-                                  .firstOrNull
-                                  ?.id;
-                            }
-                          }),
-                        ),
-                    ],
-                  ),
-                  if (kind == 'transfer' && _walletViews.length > 1) ...[
-                    const SizedBox(height: 14),
-                    const FunLabel('6. Ke Dompet Tujuan'),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final w in _walletViews)
-                          if (w.id != fromWalletId)
-                            FunPill(
-                              label: w.name,
-                              selected: toWalletId == w.id,
-                              onTap: () => setSheet(() => toWalletId = w.id),
-                            ),
-                      ],
-                    ),
-                  ] else if (kind == 'expense' && _expenseCats.isNotEmpty) ...[
-                    const SizedBox(height: 14),
-                    const FunLabel('6. Kategori Anggaran'),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final cat in _expenseCats)
-                          FunPill(
-                            label: cat.name,
-                            icon: categoryIcon(cat.icon),
-                            selected: categoryId == cat.id,
-                            onTap: () => setSheet(() => categoryId = cat.id),
-                          ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 14),
-                  const FunLabel('Catatan (Opsional)'),
-                  const SizedBox(height: 6),
-                  _SheetField(
-                    controller: noteC,
-                    hint: 'Contoh: Kost Putra Kamar 12',
-                  ),
-                  if (!alreadyExecuted && dayOfMonth <= now.day) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.bolt_rounded,
-                            size: 18,
-                            color: AppColors.accentBlue,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              dayOfMonth == now.day
-                                  ? 'Hari ini tanggal $dayOfMonth! Langsung proses untuk bulan ini'
-                                  : 'Tanggal $dayOfMonth sudah lewat di bulan ini. Proses juga untuk bulan ini sekarang?',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.inkPrimary,
-                              ),
-                            ),
-                          ),
-                          Switch(
-                            value: executeNow,
-                            activeThumbColor: AppColors.accentBlue,
-                            onChanged: (v) => setSheet(() => executeNow = v),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 20),
-                  GestureDetector(
-                    onTap: () async {
-                      final amt =
-                          double.tryParse(
-                            amountC.text.replaceAll(RegExp(r'[^\d]'), ''),
-                          ) ??
-                          0;
-                      if (amt <= 0) {
-                        AppToast.showWarning(
-                          context,
-                          'Masukkan nominal auto-transfer terlebih dahulu',
-                        );
-                        return;
-                      }
-                      if (fromWalletId == null) return;
-                      if (kind == 'transfer' &&
-                          (toWalletId == null || toWalletId == fromWalletId)) {
-                        AppToast.showWarning(
-                          context,
-                          'Pilih dompet tujuan yang berbeda',
-                        );
-                        return;
-                      }
-
-                      final repo = getIt<FinanceRepository>();
-                      final nav = Navigator.of(ctx);
-                      final cleanTitle = titleC.text.trim().isEmpty
-                          ? (kind == 'transfer'
-                                ? 'Auto-Transfer Bulanan'
-                                : 'Bayar Kost')
-                          : titleC.text.trim();
-
-                      // Cari apakah ada budget yang cocok dengan kategori ini
-                      final matchingBudget = kind == 'expense'
-                          ? _budgets
-                                .where((b) => b.categoryId == categoryId)
-                                .firstOrNull
-                          : null;
-
-                      await repo.saveAutoSchedule(
-                        id: editing?.id,
-                        title: cleanTitle,
-                        kind: kind,
-                        amount: amt,
-                        dayOfMonth: dayOfMonth,
-                        walletId: fromWalletId!,
-                        toWalletId: kind == 'transfer' ? toWalletId : null,
-                        categoryId: kind == 'expense' ? categoryId : null,
-                        budgetId: editing?.budgetId ?? matchingBudget?.id,
-                        note: noteC.text,
-                        isEnabled: editing?.isEnabled ?? true,
-                        executeNowForCurrentMonth:
-                            !alreadyExecuted && executeNow,
-                      );
-
-                      nav.pop();
-                      if (!mounted) return;
-                      AppToast.showSuccess(
-                        context,
-                        !alreadyExecuted && executeNow
-                            ? 'Jadwal disimpan & ${fmtRp(amt)} berhasil diproses untuk bulan ini'
-                            : 'Jadwal otomatis setiap tanggal $dayOfMonth berhasil disimpan',
-                      );
-                    },
-                    child: Container(
-                      height: 52,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        gradient: AppColors.primaryButtonGradient,
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: const Color(0x66FFFFFF),
-                          width: 1.2,
-                        ),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x332563EB),
-                            blurRadius: 16,
-                            offset: Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: Text(
-                        editing == null
-                            ? 'Simpan Jadwal Otomatis'
-                            : 'Simpan Perubahan',
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (editing != null) ...[
-                    const SizedBox(height: 8),
-                    Center(
-                      child: TextButton(
-                        onPressed: () {
-                          getIt<FinanceRepository>().deleteAutoSchedule(
-                            editing.id,
-                          );
-                          Navigator.pop(ctx);
-                        },
-                        child: const Text(
-                          'Hapus jadwal otomatis',
-                          style: TextStyle(color: AppColors.expense),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   List<Widget> _budgetTab() {
     final items = _budgets;
     final limit = items.fold<double>(0, (a, e) => a + e.limit);
     final spent = items.fold<double>(0, (a, e) => a + e.spent);
     double ratio(double a, double b) => b <= 0 ? 0 : (a / b);
-    final now = DateTime.now();
-
-    final activeSchedules = _autoSchedules.where((s) => s.isEnabled).toList();
-    final totalAutoAmount = activeSchedules.fold<double>(
-      0,
-      (a, s) => a + s.amount,
-    );
-    final doneCount = activeSchedules
-        .where((s) => s.isExecutedForMonth(now))
-        .length;
 
     return [
       FunCard(
@@ -1292,132 +629,6 @@ class _DashboardBodyState extends State<_DashboardBody> {
         ),
       ),
       const SizedBox(height: 16),
-
-      // ── Section: Jadwal Auto-Transfer & Pembayaran Rutin ──
-      Row(
-        children: [
-          const Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(left: 4),
-              child: FunLabel(
-                'Jadwal Auto-Transfer',
-                icon: Icons.event_repeat_rounded,
-              ),
-            ),
-          ),
-          FunPill(
-            label: 'Atur Jadwal',
-            icon: Icons.add_rounded,
-            selected: true,
-            onTap: () => _showAutoScheduleSheet(),
-          ),
-        ],
-      ),
-      const SizedBox(height: 10),
-      if (_autoSchedules.isEmpty)
-        FunCard(
-          onTap: () => _showAutoScheduleSheet(),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
-          child: Row(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: auroraActiveDecoration(radius: 14),
-                child: const Icon(
-                  Icons.event_repeat_rounded,
-                  color: Colors.white,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 14),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Belum ada jadwal auto-transfer',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.inkPrimary,
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Contoh: Setiap tanggal 1 otomatis bayar kost atau pindah saldo dompet',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: AppColors.inkMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: AppColors.inkMuted,
-              ),
-            ],
-          ),
-        )
-      else ...[
-        FunCard(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                alignment: Alignment.center,
-                decoration: auroraActiveDecoration(radius: 14),
-                child: const Icon(
-                  Icons.bolt_rounded,
-                  color: Colors.white,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const FunLabel('Total Auto-Transfer / Bulan'),
-                    const SizedBox(height: 2),
-                    MoneyText(fmtRp(totalAutoAmount), size: 20),
-                  ],
-                ),
-              ),
-              FunBadge('$doneCount/${activeSchedules.length} selesai'),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        for (final s in _autoSchedules)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: _AutoScheduleCard(
-              schedule: s,
-              now: now,
-              shortMonths: _shortMonths,
-              onTap: () => _showAutoScheduleSheet(editing: s),
-              onToggle: (v) =>
-                  getIt<FinanceRepository>().toggleAutoSchedule(s.id, v),
-              onExecuteNow: () async {
-                final done = await getIt<FinanceRepository>()
-                    .executeAutoScheduleNow(s.id);
-                if (!mounted || done == null) return;
-                AppToast.showSuccess(
-                  context,
-                  'Berhasil dijalankan: ${done.title} (${fmtRp(done.amount)})',
-                );
-              },
-            ),
-          ),
-      ],
-
-      const SizedBox(height: 12),
       const Padding(
         padding: EdgeInsets.only(left: 4, bottom: 8),
         child: FunLabel('Anggaran per kategori'),
@@ -1442,91 +653,83 @@ class _DashboardBodyState extends State<_DashboardBody> {
             children: [
               for (int i = 0; i < items.length; i++) ...[
                 if (i > 0) const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                Builder(
-                  builder: (context) {
-                    final linkedAuto = _autoSchedules
-                        .where(
-                          (s) =>
-                              s.isEnabled &&
-                              (s.budgetId == items[i].id ||
-                                  (items[i].categoryId != null &&
-                                      s.categoryId == items[i].categoryId)),
-                        )
-                        .firstOrNull;
-                    return InkWell(
-                      onTap: () => _showBudgetSheet(editing: items[i]),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
+                InkWell(
+                  onTap: () => _showBudgetSheet(editing: items[i]),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        Row(
                           children: [
-                            Row(
-                              children: [
-                                IconBox(
-                                  items[i].categoryId == null
-                                      ? Icons.pie_chart_outline_rounded
-                                      : categoryIcon(
-                                          _expenseCats
-                                              .where(
-                                                (c) =>
-                                                    c.id == items[i].categoryId,
-                                              )
-                                              .firstOrNull
-                                              ?.icon,
-                                        ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Flexible(
-                                            child: Text(
-                                              items[i].categoryName,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w700,
-                                                color: AppColors.inkPrimary,
-                                              ),
-                                            ),
-                                          ),
-                                          if (linkedAuto != null) ...[
-                                            const SizedBox(width: 6),
-                                            FunBadge(
-                                              'Auto Tgl ${linkedAuto.dayOfMonth}',
-                                              icon: Icons.event_repeat_rounded,
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                      Text(
-                                        '${fmtRp(items[i].spent)} dari ${fmtRp(items[i].limit)}',
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          color: AppColors.inkMuted,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                FunBadge(
-                                  '${(ratio(items[i].spent, items[i].limit) * 100).round()}%',
-                                ),
-                              ],
+                            IconBox(
+                              items[i].categoryId == null
+                                  ? Icons.pie_chart_outline_rounded
+                                  : categoryIcon(
+                                      _expenseCats
+                                          .where(
+                                            (c) => c.id == items[i].categoryId,
+                                          )
+                                          .firstOrNull
+                                          ?.icon,
+                                    ),
                             ),
-                            const SizedBox(height: 10),
-                            _ProgressBar(
-                              value: ratio(items[i].spent, items[i].limit),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    items[i].categoryName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.inkPrimary,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${fmtRp(items[i].spent)} dari ${fmtRp(items[i].limit)}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.inkMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            FunBadge(
+                              '${(ratio(items[i].spent, items[i].limit) * 100).round()}%',
+                            ),
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              onTap: () => _confirmDeleteBudget(items[i]),
+                              behavior: HitTestBehavior.opaque,
+                              child: Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: AppColors.expenseLight.withValues(
+                                    alpha: 0.75,
+                                  ),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  Icons.delete_outline_rounded,
+                                  size: 17,
+                                  color: AppColors.expense,
+                                ),
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                    );
-                  },
+                        const SizedBox(height: 10),
+                        _ProgressBar(
+                          value: ratio(items[i].spent, items[i].limit),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ],
@@ -1555,7 +758,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
     ];
   }
 
-  List<Widget> _piggoTab() {
+  List<Widget> _celenganTab() {
     final saved = _goals.fold<double>(0, (a, g) => a + g.saved);
     final target = _goals.fold<double>(0, (a, g) => a + g.target);
     return [
@@ -1567,8 +770,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
               height: 56,
               alignment: Alignment.center,
               decoration: auroraActiveDecoration(radius: 18),
-              child: const Icon(
-                Icons.savings_outlined,
+              child: const ChickenBankIcon(
                 color: Colors.white,
                 size: 28,
               ),
@@ -1578,7 +780,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const FunLabel('Total tabungan Piggo'),
+                  const FunLabel('Total Celengan Digital'),
                   const SizedBox(height: 4),
                   MoneyText(fmtRp(saved), size: 26),
                   Text(
@@ -1597,9 +799,9 @@ class _DashboardBodyState extends State<_DashboardBody> {
       const SizedBox(height: 16),
       Row(
         children: [
-          const Expanded(child: FunLabel('Celengan saya')),
+          const Expanded(child: FunLabel('Celengan Digital saya')),
           FunPill(
-            label: 'Buat Tabungan',
+            label: 'Buat Celengan',
             icon: Icons.add_rounded,
             selected: true,
             onTap: () => _showGoalSheet(),
@@ -1614,15 +816,14 @@ class _DashboardBodyState extends State<_DashboardBody> {
             width: double.infinity,
             child: Column(
               children: [
-                IconBox(
-                  Icons.savings_outlined,
+                IconBox.chicken(
                   size: 48,
                   radius: 16,
-                  iconSize: 22,
+                  iconSize: 24,
                 ),
                 SizedBox(height: 12),
                 Text(
-                  'Belum ada tabungan',
+                  'Belum ada celengan digital',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
@@ -1643,7 +844,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
               children: [
                 Row(
                   children: [
-                    const IconBox(Icons.savings_outlined),
+                    const IconBox.chicken(),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -1694,15 +895,19 @@ class _DashboardBodyState extends State<_DashboardBody> {
                     ),
                     const SizedBox(width: 8),
                     GestureDetector(
-                      onTap: () => getIt<FinanceRepository>().deleteJar(g.id),
+                      onTap: () => _confirmDeleteGoal(g),
                       behavior: HitTestBehavior.opaque,
-                      child: const SizedBox(
-                        width: 36,
-                        height: 36,
-                        child: Icon(
+                      child: Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: AppColors.expenseLight.withValues(alpha: 0.75),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
                           Icons.delete_outline_rounded,
                           size: 18,
-                          color: AppColors.inkMuted,
+                          color: AppColors.expense,
                         ),
                       ),
                     ),
@@ -1716,8 +921,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
   }
 
   List<String> _budgetBadges() {
-    final activeAuto = _autoSchedules.where((s) => s.isEnabled).length;
-    if (_budgets.isEmpty && activeAuto == 0) {
+    if (_budgets.isEmpty) {
       return const ['Belum ada anggaran'];
     }
     final limit = _budgets.fold<double>(0, (a, b) => a + b.limit);
@@ -1725,12 +929,9 @@ class _DashboardBodyState extends State<_DashboardBody> {
     final now = DateTime.now();
     final daysLeft = DateTime(now.year, now.month + 1, 0).day - now.day;
     return [
-      if (_budgets.isNotEmpty) 'Sisa ${fmtRp(limit - spent)}',
+      'Sisa ${fmtRp(limit - spent)}',
       '$daysLeft hari lagi',
-      if (activeAuto > 0)
-        '$activeAuto auto-transfer'
-      else
-        '${_budgets.length} kategori',
+      '${_budgets.length} kategori',
     ];
   }
 
@@ -1784,12 +985,12 @@ class _DashboardBodyState extends State<_DashboardBody> {
           eyebrow: _tab == 1
               ? 'Rencana pengeluaran'
               : _tab == 2
-              ? 'Celengan digital'
+              ? 'Tabungan & target impian'
               : null,
           headline: _tab == 1
               ? 'Budgeting Plan'
               : _tab == 2
-              ? 'Piggo'
+              ? 'Celengan Digital'
               : null,
         ),
         Expanded(
@@ -1884,7 +1085,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
                             if (page == 1)
                               ..._budgetTab()
                             else if (page == 2)
-                              ..._piggoTab()
+                              ..._celenganTab()
                             else ...[
                               const DetectedCard(),
                               // ── Total Aset / Dompet ──
@@ -2085,10 +1286,10 @@ class _HeaderTabs extends StatelessWidget {
     required this.onChanged,
   });
 
-  static const _tabs = [
+  static const _tabs = <(IconData?, String, double)>[
     (Icons.home_outlined, 'Beranda', 44.0),
     (Icons.pie_chart_outline_rounded, 'Anggaran', 44.0),
-    (Icons.savings_outlined, 'Piggo', 44.0),
+    (null, 'Celengan Digital', 44.0),
   ];
   static const double _iconW = 44;
 
@@ -2169,15 +1370,25 @@ class _HeaderTabs extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(
-                                _tabs[i].$1,
-                                size: 18,
-                                color: Color.lerp(
-                                  AppColors.inkPrimary,
-                                  AppColors.accentBlue,
-                                  ts[i],
+                              if (_tabs[i].$1 != null)
+                                Icon(
+                                  _tabs[i].$1,
+                                  size: 18,
+                                  color: Color.lerp(
+                                    AppColors.inkPrimary,
+                                    AppColors.accentBlue,
+                                    ts[i],
+                                  ),
+                                )
+                              else
+                                ChickenBankIcon(
+                                  size: 19,
+                                  color: Color.lerp(
+                                    AppColors.inkPrimary,
+                                    AppColors.accentBlue,
+                                    ts[i],
+                                  )!,
                                 ),
-                              ),
                             ],
                           ),
                         ),
@@ -2244,16 +1455,31 @@ class _SheetField extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14),
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: AppColors.surfaceRaised,
+        color: glassFill(context),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.9),
+          width: 1.2,
+        ),
       ),
       child: TextField(
         controller: controller,
         autofocus: autofocus,
         keyboardType: number ? TextInputType.number : TextInputType.text,
-        style: const TextStyle(fontSize: 14, color: AppColors.inkPrimary),
+        inputFormatters: number ? const [RupiahInputFormatter()] : null,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: AppColors.inkPrimary,
+        ),
         decoration: InputDecoration(
           hintText: hint,
+          prefixText: number ? 'Rp ' : null,
+          prefixStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: AppColors.inkSecondary,
+          ),
           hintStyle: const TextStyle(color: AppColors.inkMuted, fontSize: 14),
           border: InputBorder.none,
           isDense: true,
@@ -2491,296 +1717,6 @@ class _MetricCard extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           MoneyText(value, size: 14, weight: FontWeight.w700),
-        ],
-      ),
-    );
-  }
-}
-
-/// Pemilih tanggal 1..31 setiap bulan dengan chip cepat & deretan angka.
-class _DayOfMonthSelector extends StatelessWidget {
-  final int selectedDay;
-  final ValueChanged<int> onChanged;
-
-  const _DayOfMonthSelector({
-    required this.selectedDay,
-    required this.onChanged,
-  });
-
-  static const _quickDays = <(int, String)>[
-    (1, 'Tgl 1 • Awal Bulan'),
-    (5, 'Tgl 5'),
-    (10, 'Tgl 10'),
-    (15, 'Tgl 15'),
-    (25, 'Tgl 25 • Gajian'),
-    (28, 'Tgl 28'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            for (final q in _quickDays)
-              FunPill(
-                label: q.$2,
-                selected: selectedDay == q.$1,
-                onTap: () => onChanged(q.$1),
-              ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 38,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: 31,
-            separatorBuilder: (_, __) => const SizedBox(width: 6),
-            itemBuilder: (context, index) {
-              final day = index + 1;
-              final isSelected = day == selectedDay;
-              return GestureDetector(
-                onTap: () => onChanged(day),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 160),
-                  width: 38,
-                  height: 38,
-                  alignment: Alignment.center,
-                  decoration: isSelected
-                      ? auroraActiveDecoration(radius: 12)
-                      : BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
-                        ),
-                  child: Text(
-                    '$day',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: isSelected ? Colors.white : AppColors.inkPrimary,
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Kartu item jadwal Auto-Transfer / Pembayaran Rutin di tab Budgeting Plan.
-class _AutoScheduleCard extends StatelessWidget {
-  final AutoScheduleView schedule;
-  final DateTime now;
-  final List<String> shortMonths;
-  final VoidCallback onTap;
-  final ValueChanged<bool> onToggle;
-  final VoidCallback onExecuteNow;
-
-  const _AutoScheduleCard({
-    required this.schedule,
-    required this.now,
-    required this.shortMonths,
-    required this.onTap,
-    required this.onToggle,
-    required this.onExecuteNow,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final executedThisMonth = schedule.isExecutedForMonth(now);
-    final nextDate = schedule.nextExecutionDate(now);
-    final isTransfer = schedule.kind == 'transfer';
-    final routeText = isTransfer
-        ? '${schedule.walletName} → ${schedule.toWalletName ?? '-'}'
-        : '${schedule.walletName} • ${schedule.categoryName ?? 'Pengeluaran'}';
-
-    final String statusLabel;
-    final Color statusBg;
-    final Color statusFg;
-    final IconData statusIcon;
-
-    if (executedThisMonth) {
-      statusLabel = 'Terbayar bulan ini';
-      statusBg = const Color(0xFFDCFCE7);
-      statusFg = const Color(0xFF15803D);
-      statusIcon = Icons.check_circle_rounded;
-    } else if (!schedule.isEnabled) {
-      statusLabel = 'Nonaktif';
-      statusBg = const Color(0xFFF1F5F9);
-      statusFg = AppColors.inkMuted;
-      statusIcon = Icons.pause_circle_outline_rounded;
-    } else {
-      final isToday =
-          nextDate.year == now.year &&
-          nextDate.month == now.month &&
-          nextDate.day == now.day;
-      statusLabel = isToday
-          ? 'Jatuh tempo hari ini'
-          : 'Jadwal: ${nextDate.day} ${shortMonths[nextDate.month - 1]}';
-      statusBg = const Color(0xFFEFF6FF);
-      statusFg = AppColors.accentBlue;
-      statusIcon = Icons.schedule_rounded;
-    }
-
-    return FunCard(
-      onTap: onTap,
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              // Badge Tanggal Kalender
-              Container(
-                width: 46,
-                height: 46,
-                decoration: schedule.isEnabled
-                    ? auroraActiveDecoration(radius: 14)
-                    : BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'TGL',
-                      style: TextStyle(
-                        fontSize: 8,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.6,
-                        color: schedule.isEnabled
-                            ? Colors.white.withValues(alpha: 0.9)
-                            : AppColors.inkMuted,
-                      ),
-                    ),
-                    Text(
-                      '${schedule.dayOfMonth}',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        height: 1.1,
-                        color: schedule.isEnabled
-                            ? Colors.white
-                            : AppColors.inkSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            schedule.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: schedule.isEnabled
-                                  ? AppColors.inkPrimary
-                                  : AppColors.inkMuted,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        FunBadge(
-                          isTransfer ? 'Transfer' : 'Auto-Bayar',
-                          icon: isTransfer
-                              ? Icons.swap_horiz_rounded
-                              : Icons.bolt_rounded,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      routeText,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: AppColors.inkMuted,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  MoneyText(fmtRp(schedule.amount), size: 15),
-                  SizedBox(
-                    height: 28,
-                    child: Transform.scale(
-                      scale: 0.8,
-                      alignment: Alignment.centerRight,
-                      child: Switch(
-                        value: schedule.isEnabled,
-                        activeThumbColor: AppColors.accentBlue,
-                        onChanged: onToggle,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: statusBg,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(statusIcon, size: 13, color: statusFg),
-                    const SizedBox(width: 5),
-                    Text(
-                      statusLabel,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: statusFg,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Spacer(),
-              if (!executedThisMonth)
-                FunPill(
-                  label: 'Jalankan Sekarang',
-                  icon: Icons.play_arrow_rounded,
-                  onTap: onExecuteNow,
-                ),
-            ],
-          ),
         ],
       ),
     );

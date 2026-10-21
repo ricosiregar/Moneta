@@ -341,13 +341,16 @@ class _Section extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  width: 20,
-                  height: 20,
+                  width: 22,
+                  height: 22,
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceRaised,
-                    borderRadius: BorderRadius.circular(6),
+                    color: glassFill(context),
+                    borderRadius: BorderRadius.circular(7),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.88),
+                    ),
                   ),
-                  child: Icon(icon, size: 12, color: AppColors.inkSecondary),
+                  child: Icon(icon, size: 12, color: AppColors.accentBlue),
                 ),
                 const SizedBox(width: 8),
                 FunLabel(title),
