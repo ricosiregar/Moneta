@@ -12,7 +12,7 @@ import 'core/di/injection.dart';
 import 'core/database/finance_repository.dart';
 import 'core/network/interceptors/supabase_logging_interceptor.dart';
 import 'core/routes/routes.dart';
-import 'features/notifications/notification_capture_service.dart';
+import 'features/notifications/data/services/notification_capture_service.dart';
 import 'core/theme/app_colors.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_state.dart';

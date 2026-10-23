@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:Moneta/features/categories/add_category_sheet.dart';
+import 'package:Moneta/features/categories/presentation/widgets/add_category_sheet.dart';
 
 void main() {
   testWidgets('AddCategorySheet renders without error or overflow', (tester) async {

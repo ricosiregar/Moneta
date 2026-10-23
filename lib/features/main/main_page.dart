@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/components/floating_bottom_nav.dart';
-import '../../core/components/transaction_sheet.dart';
+import '../transactions/presentation/widgets/transaction_sheet.dart';
 import '../../core/theme/app_colors.dart';
 import 'cubit/bottom_nav_cubit.dart';
-import '../analytic/analytics_page.dart';
+import '../analytic/presentation/pages/analytics_page.dart';
 import '../home/presentation/pages/home_page.dart';
-import '../profile/profile_page.dart';
-import '../transactions/transactions_page.dart';
+import '../profile/presentation/pages/profile_page.dart';
+import '../transactions/presentation/pages/transactions_page.dart';
 
 /// MainPage manages persistent Floating Island Bottom Navigation + FAB
 /// with IndexedStack + BottomNavCubit.

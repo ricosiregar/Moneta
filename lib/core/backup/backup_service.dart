@@ -153,6 +153,8 @@ class BackupService {
       });
     } finally {
       await _db.customStatement('PRAGMA foreign_keys = ON');
+      // customStatement tidak memberi tahu stream Drift; segarkan UI.
+      _db.markTablesUpdated(_db.allTables);
     }
     return count;
   }
@@ -169,6 +171,9 @@ class BackupService {
           "UPDATE $t SET deleted_at = ?, updated_at = ?, sync_status = 'dirty' "
           'WHERE deleted_at IS NULL',
           variables: [Variable.withInt(now), Variable.withInt(now)],
+          // Tanpa ini stream Drift tidak tahu tabel berubah -> UI baru
+          // berubah setelah sinkron.
+          updates: _db.allTables.toSet(),
         );
       }
     });

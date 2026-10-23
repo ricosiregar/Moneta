@@ -2,7 +2,6 @@ export 'app_buttons.dart';
 export 'app_card.dart';
 export 'aurora_header.dart';
 export 'floating_bottom_nav.dart';
-export 'transaction_sheet.dart';
 export 'donut_chart_card.dart';
 export 'app_luminous_fab.dart';
 export 'app_glass_sheet.dart';

@@ -1,203 +1,89 @@
+import 'dart:async';
+
+import 'package:Moneta/core/network/error/failures.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../data/models/transaction_model.dart';
-import '../../data/models/wallet_model.dart';
-import '../../data/repositories/home_repository.dart';
 
-// ─── State ───────────────────────────────────────────────────────────────────
+import '../../../analytic/domain/usecases/analytics_usecases.dart';
+import '../../../categories/domain/entities/category_entity.dart';
+import '../../../categories/domain/usecases/category_usecases.dart';
+import '../../../wallets/domain/usecases/wallet_usecases.dart';
+import 'home_state.dart';
 
-enum HomeStatus { initial, loading, success, failure }
-
-class HomeState {
-  final HomeStatus status;
-  final List<WalletModel> wallets;
-  final List<TransactionModel> recentTransactions;
-  final double totalBalance;
-  final double totalExpense;
-  final TransactionPeriod selectedPeriod;
-  final bool isAddingWallet;
-  final bool isAddingTransaction;
-  final String? errorMessage;
-
-  const HomeState({
-    this.status = HomeStatus.initial,
-    this.wallets = const [],
-    this.recentTransactions = const [],
-    this.totalBalance = 0,
-    this.totalExpense = 0,
-    this.selectedPeriod = TransactionPeriod.monthly,
-    this.isAddingWallet = false,
-    this.isAddingTransaction = false,
-    this.errorMessage,
-  });
-
-  HomeState copyWith({
-    HomeStatus? status,
-    List<WalletModel>? wallets,
-    List<TransactionModel>? recentTransactions,
-    double? totalBalance,
-    double? totalExpense,
-    TransactionPeriod? selectedPeriod,
-    bool? isAddingWallet,
-    bool? isAddingTransaction,
-    String? errorMessage,
-  }) {
-    return HomeState(
-      status: status ?? this.status,
-      wallets: wallets ?? this.wallets,
-      recentTransactions: recentTransactions ?? this.recentTransactions,
-      totalBalance: totalBalance ?? this.totalBalance,
-      totalExpense: totalExpense ?? this.totalExpense,
-      selectedPeriod: selectedPeriod ?? this.selectedPeriod,
-      isAddingWallet: isAddingWallet ?? this.isAddingWallet,
-      isAddingTransaction: isAddingTransaction ?? this.isAddingTransaction,
-      errorMessage: errorMessage ?? this.errorMessage,
-    );
-  }
-
-  /// Expense dihitung ulang dari recentTransactions sesuai periode yang dipilih
-  double get filteredExpense {
-    final now = DateTime.now();
-    late DateTime cutoff;
-    switch (selectedPeriod) {
-      case TransactionPeriod.daily:
-        cutoff = DateTime(now.year, now.month, now.day);
-        break;
-      case TransactionPeriod.weekly:
-        cutoff = DateTime(
-          now.year,
-          now.month,
-          now.day - (now.weekday - 1),
-        );
-        break;
-      case TransactionPeriod.monthly:
-        cutoff = DateTime(now.year, now.month, 1);
-        break;
-    }
-    return recentTransactions
-        .where((tx) => tx.isExpense && tx.date.isAfter(cutoff))
-        .fold(0.0, (sum, tx) => sum + tx.amount);
-  }
-}
-
-// ─── Cubit ───────────────────────────────────────────────────────────────────
-
+/// Data dasar beranda: dompet, kategori pengeluaran, dan ringkasan periode.
 class HomeCubit extends Cubit<HomeState> {
-  final HomeRepository _repository;
+  HomeCubit({
+    required WatchWalletsUseCase watchWallets,
+    required WatchCategoriesUseCase watchCategories,
+    required WatchSummaryUseCase watchSummary,
+  })  : _watchWallets = watchWallets,
+        _watchCategories = watchCategories,
+        _watchSummary = watchSummary,
+        super(const HomeState());
 
-  HomeCubit(this._repository) : super(const HomeState());
+  final WatchWalletsUseCase _watchWallets;
+  final WatchCategoriesUseCase _watchCategories;
+  final WatchSummaryUseCase _watchSummary;
 
-  Future<void> loadDashboard() async {
-    emit(state.copyWith(status: HomeStatus.loading));
-    try {
-      final wallets = await _repository.getWallets();
-      final transactions = await _repository.getTransactionsByPeriod(
-        state.selectedPeriod,
-      );
-      final totalBalance = await _repository.getTotalBalance();
+  final _subs = <StreamSubscription<dynamic>>[];
+  final _summarySubs = <StreamSubscription<dynamic>>[];
 
-      // expense dihitung dari filtered state
-      emit(
-        state.copyWith(
-          status: HomeStatus.success,
-          wallets: wallets,
-          recentTransactions: transactions,
-          totalBalance: totalBalance,
-          totalExpense: 0, // tidak dipakai langsung, pakai filteredExpense
-          errorMessage: null,
-        ),
-      );
-    } catch (e) {
-      emit(
-        state.copyWith(
-          status: HomeStatus.failure,
-          errorMessage: e.toString(),
-        ),
-      );
-    }
-  }
-
-  Future<void> changePeriod(TransactionPeriod period) async {
-    if (state.selectedPeriod == period) return;
-    emit(state.copyWith(
-      selectedPeriod: period,
-      status: HomeStatus.loading,
-    ));
-    try {
-      final transactions = await _repository.getTransactionsByPeriod(period);
-      emit(state.copyWith(
-        status: HomeStatus.success,
-        recentTransactions: transactions,
-      ));
-    } catch (e) {
-      emit(state.copyWith(
+  void _fail(Failure f) => emit(state.copyWith(
         status: HomeStatus.failure,
-        errorMessage: e.toString(),
+        errorMessage: f.message,
       ));
+
+  void start() {
+    for (final s in _subs) {
+      s.cancel();
     }
+    _subs.clear();
+    emit(state.copyWith(status: HomeStatus.loading));
+    _subs.add(_watchWallets().listen((r) => r.fold(
+          _fail,
+          (w) => emit(state.copyWith(
+            status: HomeStatus.success,
+            wallets: w,
+            errorMessage: null,
+          )),
+        )));
+    _subs.add(_watchCategories(CategoryType.expense).listen((r) => r.fold(
+          _fail,
+          (c) => emit(state.copyWith(expenseCategories: c)),
+        )));
+    watchSummaries(walletId: null);
   }
 
-  Future<void> addWallet({
-    required String name,
-    required String type,
-    required double balance,
-    required String icon,
-    required String color,
-  }) async {
-    emit(state.copyWith(isAddingWallet: true));
-    try {
-      final newWallet = await _repository.addWallet(
-        name: name,
-        type: type,
-        balance: balance,
-        icon: icon,
-        color: color,
+  /// Ringkasan hari ini / minggu ini / bulan ini, opsional per dompet.
+  void watchSummaries({String? walletId}) {
+    for (final s in _summarySubs) {
+      s.cancel();
+    }
+    _summarySubs.clear();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final weekStart = today.subtract(Duration(days: now.weekday - 1));
+    final ranges = [
+      (today, today.add(const Duration(days: 1))),
+      (weekStart, weekStart.add(const Duration(days: 7))),
+      (DateTime(now.year, now.month), DateTime(now.year, now.month + 1)),
+    ];
+    for (var i = 0; i < ranges.length; i++) {
+      _summarySubs.add(
+        _watchSummary(ranges[i].$1, ranges[i].$2, walletId: walletId)
+            .listen((r) => r.fold(_fail, (s) {
+                  final next = [...state.summaries];
+                  next[i] = s;
+                  emit(state.copyWith(summaries: next));
+                })),
       );
-      final updatedWallets = [...state.wallets, newWallet];
-      final newTotalBalance =
-          updatedWallets.fold(0.0, (s, w) => s + w.balance);
-      emit(state.copyWith(
-        isAddingWallet: false,
-        wallets: updatedWallets,
-        totalBalance: newTotalBalance,
-      ));
-    } catch (e) {
-      emit(state.copyWith(
-        isAddingWallet: false,
-        errorMessage: e.toString(),
-      ));
     }
   }
 
-  Future<void> addTransaction({
-    required String title,
-    required double amount,
-    required String type,
-    String? walletId,
-    String? categoryId,
-    DateTime? date,
-    String? note,
-  }) async {
-    emit(state.copyWith(isAddingTransaction: true));
-    try {
-      await _repository.addTransaction(
-        title: title,
-        amount: amount,
-        type: type,
-        walletId: walletId,
-        categoryId: categoryId,
-        date: date,
-        note: note,
-      );
-      emit(state.copyWith(isAddingTransaction: false));
-      await loadDashboard();
-    } catch (e) {
-      emit(state.copyWith(
-        isAddingTransaction: false,
-        errorMessage: e.toString(),
-      ));
-      rethrow;
+  @override
+  Future<void> close() {
+    for (final s in [..._subs, ..._summarySubs]) {
+      s.cancel();
     }
+    return super.close();
   }
-
-  Future<void> refresh() => loadDashboard();
 }

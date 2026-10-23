@@ -8,13 +8,21 @@ import '../../../../core/components/app_toast.dart';
 import '../../../../core/components/aurora_header.dart';
 import '../../../../core/components/category_icons.dart';
 import '../../../../core/components/fun_widgets.dart';
-import '../../../../core/database/finance_repository.dart';
-import '../../../../core/database/wallet_repository.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/sync/sync_service.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../wallets/wallets_page.dart';
-import '../../../notifications/detected_card.dart';
+import '../../../wallets/presentation/pages/wallets_page.dart';
+import '../../../budgets/domain/entities/budget_entity.dart';
+import '../../../categories/domain/entities/category_entity.dart';
+import '../../../wallets/domain/entities/wallet_entity.dart';
+import '../cubit/home_cubit.dart';
+import '../../../budgets/domain/usecases/budget_usecases.dart';
+import '../../../budgets/presentation/cubit/budgets_cubit.dart';
+import '../../../jars/domain/usecases/jar_usecases.dart';
+import '../../../jars/presentation/cubit/jars_cubit.dart';
+import '../../../schedules/domain/usecases/schedule_usecases.dart';
+import '../../../../core/utils/usecase.dart';
+import '../../../notifications/presentation/widgets/detected_card.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 
@@ -108,20 +116,23 @@ class _DashboardBodyState extends State<_DashboardBody> {
 
   String? _selectedWalletId;
   List<_DummyWallet> _wallets = const [];
-  List<WalletView> _walletViews = const [];
+  List<WalletEntity> _walletViews = const [];
+  final HomeCubit _homeCubit = getIt<HomeCubit>();
   List<_Summary> _summaries = const [
     _Summary(0, 0, 0),
     _Summary(0, 0, 0),
     _Summary(0, 0, 0),
   ];
-  List<BudgetView> _budgets = const [];
-  List<CategoryView> _expenseCats = const [];
+  List<BudgetEntity> _budgets = const [];
+  final BudgetsCubit _budgetsCubit = getIt<BudgetsCubit>();
+  final JarsCubit _jarsCubit = getIt<JarsCubit>();
+  List<CategoryEntity> _expenseCats = const [];
   List<_Goal> _goals = const [];
   final List<StreamSubscription<dynamic>> _subs = [];
   final List<StreamSubscription<dynamic>> _summarySubs = [];
   bool _checkingDueSchedules = false;
 
-  WalletView? get _selectedWallet {
+  WalletEntity? get _selectedWallet {
     if (_selectedWalletId == null) return null;
     return _walletViews.where((w) => w.id == _selectedWalletId).firstOrNull;
   }
@@ -136,8 +147,10 @@ class _DashboardBodyState extends State<_DashboardBody> {
     if (_checkingDueSchedules) return;
     _checkingDueSchedules = true;
     try {
-      final executed =
-          await getIt<FinanceRepository>().processDueAutoSchedules();
+      final executed = (await getIt<ProcessDueSchedulesUseCase>()(
+        const NoParams(),
+      ))
+          .getOrElse(() => const []);
       if (!mounted || executed.isEmpty) return;
       if (executed.length == 1) {
         final item = executed.first;
@@ -159,84 +172,52 @@ class _DashboardBodyState extends State<_DashboardBody> {
     }
   }
 
-  void _bindSummaries() {
-    for (final s in _summarySubs) {
-      s.cancel();
-    }
-    _summarySubs.clear();
-    final fin = getIt<FinanceRepository>();
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final weekStart = today.subtract(Duration(days: now.weekday - 1));
-    final ranges = [
-      (today, today.add(const Duration(days: 1))),
-      (weekStart, weekStart.add(const Duration(days: 7))),
-      (DateTime(now.year, now.month), DateTime(now.year, now.month + 1)),
-    ];
-    for (var i = 0; i < ranges.length; i++) {
-      _summarySubs.add(
-        fin
-            .watchSummary(
-              ranges[i].$1,
-              ranges[i].$2,
-              walletId: _selectedWalletId,
-            )
-            .listen((s) {
-              if (!mounted) return;
-              setState(() {
-                final next = [..._summaries];
-                next[i] = _Summary(s.income, s.expense, s.count);
-                _summaries = next;
-              });
-            }),
-      );
-    }
-  }
+  void _bindSummaries() => _homeCubit.watchSummaries(walletId: _selectedWalletId);
 
   void _bind() {
     for (final s in _subs) {
       s.cancel();
     }
     _subs.clear();
-    final fin = getIt<FinanceRepository>();
     final now = DateTime.now();
-    _bindSummaries();
     _subs.add(
-      getIt<WalletRepository>().watchWallets().listen((list) {
+      _homeCubit.stream.listen((st) {
         if (!mounted) return;
         setState(() {
-          _walletViews = list;
+          _walletViews = st.wallets;
           _wallets = [
-            for (final w in list)
+            for (final w in st.wallets)
               _DummyWallet(w.name, w.balance, switch (w.type) {
                 'bank' => Icons.account_balance_outlined,
                 'e_wallet' => Icons.account_balance_wallet_outlined,
                 _ => Icons.payments_outlined,
               }),
           ];
+          _expenseCats = st.expenseCategories;
+          _summaries = [
+            for (final x in st.summaries) _Summary(x.income, x.expense, x.count),
+          ];
         });
       }),
     );
+    _homeCubit.start();
     _subs.add(
-      fin.watchBudgets(now.month, now.year).listen((b) {
-        if (mounted) setState(() => _budgets = b);
+      _budgetsCubit.stream.listen((st) {
+        if (mounted) setState(() => _budgets = st.budgets);
       }),
     );
     _subs.add(
-      fin.watchCategories('expense').listen((c) {
-        if (mounted) setState(() => _expenseCats = c);
-      }),
-    );
-    _subs.add(
-      fin.watchJars().listen((jars) {
+      _jarsCubit.stream.listen((st) {
         if (!mounted) return;
         setState(
           () => _goals = [
-            for (final j in jars) _Goal(j.id, j.title, j.target, j.saved),
+            for (final j in st.jars) _Goal(j.id, j.title, j.target, j.saved),
           ],
         );
       }),
     );
+    _budgetsCubit.watch(month: now.month, year: now.year);
+    _jarsCubit.watch();
     _checkAndRunDueSchedules();
   }
 
@@ -253,6 +234,9 @@ class _DashboardBodyState extends State<_DashboardBody> {
     for (final sub in _summarySubs) {
       sub.cancel();
     }
+    _homeCubit.close();
+    _budgetsCubit.close();
+    _jarsCubit.close();
     _pager.dispose();
     for (final c in _scrolls) {
       c.dispose();
@@ -270,7 +254,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
   }
 
   Future<void> _confirmDeleteBudget(
-    BudgetView budget, {
+    BudgetEntity budget, {
     BuildContext? sheetContext,
   }) async {
     final ok = await AppGlassDialog.show(
@@ -284,7 +268,12 @@ class _DashboardBodyState extends State<_DashboardBody> {
       isDestructive: true,
     );
     if (ok != true || !mounted) return;
-    await getIt<FinanceRepository>().deleteBudget(budget.id);
+    final res = await _budgetsCubit.delete(budget.id);
+    if (!mounted) return;
+    if (res.isLeft()) {
+      res.fold((f) => AppToast.showError(context, f.message), (_) {});
+      return;
+    }
     if (sheetContext != null && sheetContext.mounted) {
       Navigator.pop(sheetContext);
     }
@@ -310,7 +299,12 @@ class _DashboardBodyState extends State<_DashboardBody> {
       isDestructive: true,
     );
     if (ok != true || !mounted) return;
-    await getIt<FinanceRepository>().deleteJar(goal.id);
+    final res = await _jarsCubit.delete(goal.id);
+    if (!mounted) return;
+    if (res.isLeft()) {
+      res.fold((f) => AppToast.showError(context, f.message), (_) {});
+      return;
+    }
     if (sheetContext != null && sheetContext.mounted) {
       Navigator.pop(sheetContext);
     }
@@ -491,20 +485,37 @@ class _DashboardBodyState extends State<_DashboardBody> {
                       return;
                     }
                   }
-                  final repo = getIt<FinanceRepository>();
                   try {
                     if (deposit == null) {
                       final n = nameC.text.trim();
-                      await repo.addJar(
+                      final res = await _jarsCubit.add(AddJarParams(
                         title: n.isEmpty ? 'Celengan Baru' : n,
                         target: v,
-                      );
+                      ));
+                      if (res.isLeft()) {
+                        if (mounted) {
+                          res.fold(
+                            (f) => AppToast.showError(context, f.message),
+                            (_) {},
+                          );
+                        }
+                        return;
+                      }
                     } else {
-                      await repo.deposit(
+                      final res = await _jarsCubit.deposit(DepositJarParams(
                         jarId: deposit.id,
                         amount: v,
                         walletId: walletId,
-                      );
+                      ));
+                      if (res.isLeft()) {
+                        if (mounted) {
+                          res.fold(
+                            (f) => AppToast.showError(context, f.message),
+                            (_) {},
+                          );
+                        }
+                        return;
+                      }
                     }
                   } catch (e) {
                     if (mounted) AppToast.showError(context, e);
@@ -560,7 +571,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
     );
   }
 
-  void _showBudgetSheet({BudgetView? editing}) {
+  void _showBudgetSheet({BudgetEntity? editing}) {
     final amountC = TextEditingController(
       text: editing == null ? '' : fmtThousands(editing.limit),
     );
@@ -706,16 +717,23 @@ class _DashboardBodyState extends State<_DashboardBody> {
                         return;
                       }
                       final now = DateTime.now();
-                      final repo = getIt<FinanceRepository>();
                       final nav = Navigator.of(ctx);
 
-                      await repo.saveBudget(
+                      final res = await _budgetsCubit.save(SaveBudgetParams(
                         id: editing?.id,
                         categoryId: categoryId,
                         limit: v,
                         month: now.month,
                         year: now.year,
-                      );
+                      ));
+                      if (!mounted) return;
+                      if (res.isLeft()) {
+                        res.fold(
+                          (f) => AppToast.showError(context, f.message),
+                          (_) {},
+                        );
+                        return;
+                      }
 
                       nav.pop();
                     },
