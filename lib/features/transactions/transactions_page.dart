@@ -567,7 +567,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                     const SizedBox(height: 8),
                     Container(
                       height: 46,
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      clipBehavior: Clip.antiAlias,
                       decoration: BoxDecoration(
                         color: glassFill(context, normal: Colors.white),
                         borderRadius: BorderRadius.circular(16),
@@ -578,66 +578,41 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                           width: _selectedWalletId != null ? 1.5 : 1,
                         ),
                       ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _selectedWalletId != null &&
-                                  _wallets.any((w) => w.id == _selectedWalletId)
-                              ? _selectedWalletId!
-                              : '__all__',
-                          isExpanded: true,
-                          borderRadius: BorderRadius.circular(16),
-                          dropdownColor: Colors.white.withValues(alpha: 0.96),
-                          icon: const Icon(
-                            Icons.keyboard_arrow_down_rounded,
-                            color: AppColors.inkSecondary,
-                          ),
-                          items: [
-                            const DropdownMenuItem<String>(
-                              value: '__all__',
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.all_inclusive_rounded,
-                                    size: 18,
-                                    color: AppColors.accentBlue,
-                                  ),
-                                  SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      'Semua Dompet',
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.inkPrimary,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                        clipBehavior: Clip.antiAlias,
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            value: _selectedWalletId != null &&
+                                    _wallets
+                                        .any((w) => w.id == _selectedWalletId)
+                                ? _selectedWalletId!
+                                : '__all__',
+                            isExpanded: true,
+                            borderRadius: BorderRadius.circular(16),
+                            dropdownColor: Colors.white.withValues(alpha: 0.96),
+                            icon: const Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              color: AppColors.inkSecondary,
                             ),
-                            for (final w in _wallets)
-                              DropdownMenuItem<String>(
-                                value: w.id,
+                            items: [
+                              const DropdownMenuItem<String>(
+                                value: '__all__',
                                 child: Row(
                                   children: [
                                     Icon(
-                                      switch (w.type) {
-                                        'bank' =>
-                                          Icons.account_balance_outlined,
-                                        'e_wallet' =>
-                                          Icons.account_balance_wallet_outlined,
-                                        _ => Icons.payments_outlined,
-                                      },
+                                      Icons.all_inclusive_rounded,
                                       size: 18,
                                       color: AppColors.accentBlue,
                                     ),
-                                    const SizedBox(width: 10),
+                                    SizedBox(width: 10),
                                     Expanded(
                                       child: Text(
-                                        '${w.name} (${fmtRp(w.balance)})',
+                                        'Semua Dompet',
                                         overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 13,
                                           fontWeight: FontWeight.w700,
                                           color: AppColors.inkPrimary,
@@ -647,14 +622,48 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                   ],
                                 ),
                               ),
-                          ],
-                          onChanged: (val) {
-                            setState(() {
-                              _selectedWalletId =
-                                  (val == null || val == '__all__') ? null : val;
-                              _visibleCount = _pageSize;
-                            });
-                          },
+                              for (final w in _wallets)
+                                DropdownMenuItem<String>(
+                                  value: w.id,
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        switch (w.type) {
+                                          'bank' =>
+                                            Icons.account_balance_outlined,
+                                          'e_wallet' =>
+                                            Icons.account_balance_wallet_outlined,
+                                          _ => Icons.payments_outlined,
+                                        },
+                                        size: 18,
+                                        color: AppColors.accentBlue,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          '${w.name} (${fmtRp(w.balance)})',
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.inkPrimary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                            onChanged: (val) {
+                              setState(() {
+                                _selectedWalletId =
+                                    (val == null || val == '__all__')
+                                        ? null
+                                        : val;
+                                _visibleCount = _pageSize;
+                              });
+                            },
+                          ),
                         ),
                       ),
                     ),
@@ -687,7 +696,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       const SizedBox(height: 8),
                       Container(
                         height: 46,
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        clipBehavior: Clip.antiAlias,
                         decoration: BoxDecoration(
                           color: glassFill(context, normal: Colors.white),
                           borderRadius: BorderRadius.circular(16),
@@ -698,62 +707,44 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                             width: _selectedCategory != null ? 1.5 : 1,
                           ),
                         ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _selectedCategory != null &&
-                                    displayCats.any(
-                                      (c) => c.name == _selectedCategory,
-                                    )
-                                ? _selectedCategory!
-                                : '__all__',
-                            isExpanded: true,
-                            borderRadius: BorderRadius.circular(16),
-                            dropdownColor: Colors.white.withValues(alpha: 0.96),
-                            icon: const Icon(
-                              Icons.keyboard_arrow_down_rounded,
-                              color: AppColors.inkSecondary,
-                            ),
-                            items: [
-                              const DropdownMenuItem<String>(
-                                value: '__all__',
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.category_outlined,
-                                      size: 18,
-                                      color: AppColors.accentBlue,
-                                    ),
-                                    SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        'Semua Kategori',
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700,
-                                          color: AppColors.inkPrimary,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                        child: Material(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(16),
+                          clipBehavior: Clip.antiAlias,
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 14),
+                              value: _selectedCategory != null &&
+                                      displayCats.any(
+                                        (c) => c.name == _selectedCategory,
+                                      )
+                                  ? _selectedCategory!
+                                  : '__all__',
+                              isExpanded: true,
+                              borderRadius: BorderRadius.circular(16),
+                              dropdownColor:
+                                  Colors.white.withValues(alpha: 0.96),
+                              icon: const Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                color: AppColors.inkSecondary,
                               ),
-                              for (final c in displayCats)
-                                DropdownMenuItem<String>(
-                                  value: c.name,
+                              items: [
+                                const DropdownMenuItem<String>(
+                                  value: '__all__',
                                   child: Row(
                                     children: [
                                       Icon(
-                                        categoryIcon(c.icon),
+                                        Icons.category_outlined,
                                         size: 18,
                                         color: AppColors.accentBlue,
                                       ),
-                                      const SizedBox(width: 10),
+                                      SizedBox(width: 10),
                                       Expanded(
                                         child: Text(
-                                          c.name,
+                                          'Semua Kategori',
                                           overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 13,
                                             fontWeight: FontWeight.w700,
                                             color: AppColors.inkPrimary,
@@ -763,51 +754,77 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                     ],
                                   ),
                                 ),
-                              const DropdownMenuItem<String>(
-                                value: '__manage__',
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.add_circle_outline_rounded,
-                                      size: 18,
-                                      color: AppColors.accentBlue,
-                                    ),
-                                    SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        '+ Tambah / Kelola Kategori',
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700,
+                                for (final c in displayCats)
+                                  DropdownMenuItem<String>(
+                                    value: c.name,
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          categoryIcon(c.icon),
+                                          size: 18,
                                           color: AppColors.accentBlue,
                                         ),
-                                      ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            c.name,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.inkPrimary,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
+                                  ),
+                                const DropdownMenuItem<String>(
+                                  value: '__manage__',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.add_circle_outline_rounded,
+                                        size: 18,
+                                        color: AppColors.accentBlue,
+                                      ),
+                                      SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          '+ Tambah / Kelola Kategori',
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.accentBlue,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
-                            onChanged: (val) {
-                              if (val == '__manage__') {
-                                _openManageCategories();
-                              } else if (val == null || val == '__all__') {
-                                setState(() {
-                                  _selectedCategory = null;
-                                  _selectedCategoryId = null;
-                                  _visibleCount = _pageSize;
-                                });
-                              } else {
-                                final matched = displayCats
-                                    .where((c) => c.name == val)
-                                    .firstOrNull;
-                                setState(() {
-                                  _selectedCategory = val;
-                                  _selectedCategoryId = matched?.id;
-                                  _visibleCount = _pageSize;
-                                });
-                              }
-                            },
+                              ],
+                              onChanged: (val) {
+                                if (val == '__manage__') {
+                                  _openManageCategories();
+                                } else if (val == null || val == '__all__') {
+                                  setState(() {
+                                    _selectedCategory = null;
+                                    _selectedCategoryId = null;
+                                    _visibleCount = _pageSize;
+                                  });
+                                } else {
+                                  final matched = displayCats
+                                      .where((c) => c.name == val)
+                                      .firstOrNull;
+                                  setState(() {
+                                    _selectedCategory = val;
+                                    _selectedCategoryId = matched?.id;
+                                    _visibleCount = _pageSize;
+                                  });
+                                }
+                              },
+                            ),
                           ),
                         ),
                       ),
@@ -1113,7 +1130,11 @@ class _Group extends StatelessWidget {
               children: [
                 for (int i = 0; i < items.length; i++) ...[
                   if (i > 0) const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                  _TxRow(items[i]),
+                  _TxRow(
+                    items[i],
+                    isFirst: i == 0,
+                    isLast: i == items.length - 1,
+                  ),
                 ],
               ],
             ),
@@ -1126,12 +1147,20 @@ class _Group extends StatelessWidget {
 
 class _TxRow extends StatelessWidget {
   final _Tx tx;
-  const _TxRow(this.tx);
+  final bool isFirst;
+  final bool isLast;
+  const _TxRow(this.tx, {this.isFirst = false, this.isLast = false});
 
   @override
   Widget build(BuildContext context) {
     final sub = tx.transfer ? tx.wallet : '${tx.category} · ${tx.wallet}';
+    final rowRadius = BorderRadius.vertical(
+      top: isFirst ? const Radius.circular(24) : Radius.zero,
+      bottom: isLast ? const Radius.circular(24) : Radius.zero,
+    );
     return InkWell(
+      borderRadius: rowRadius,
+      customBorder: RoundedRectangleBorder(borderRadius: rowRadius),
       onLongPress: tx.id.isEmpty ? null : () => _confirmDelete(context),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

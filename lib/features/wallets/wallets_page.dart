@@ -372,7 +372,10 @@ class WalletsPage extends StatelessWidget {
                                                 return;
                                               }
                                               final done = await _financeRepo
-                                                  .executeAutoScheduleNow(s.id);
+                                                  .executeAutoScheduleNow(
+                                                    s.id,
+                                                    force: true,
+                                                  );
                                               if (!context.mounted) return;
                                               if (done == null) {
                                                 AppToast.showWarning(
@@ -469,13 +472,40 @@ class WalletsPage extends StatelessWidget {
     required List<BudgetView> budgets,
     AutoScheduleView? editing,
   }) {
-    final titleC = TextEditingController(text: editing?.title ?? '');
+    const schedulePresets = <(String, IconData)>[
+      ('Bayar Kost', Icons.home_work_outlined),
+      ('Listrik & Air', Icons.bolt_rounded),
+      ('WiFi / Internet', Icons.wifi_rounded),
+      ('Paket Data', Icons.cell_tower_rounded),
+      ('Alokasi Tabungan', Icons.savings_outlined),
+    ];
+    final initialTitle = editing?.title.trim() ?? '';
+    final matchedPreset = schedulePresets
+        .where((p) => p.$1.toLowerCase() == initialTitle.toLowerCase())
+        .firstOrNull
+        ?.$1;
+    bool isCustomTitle = editing != null &&
+        editing.kind == 'expense' &&
+        initialTitle.isNotEmpty &&
+        matchedPreset == null;
+    final titleC = TextEditingController(
+      text: isCustomTitle
+          ? initialTitle
+          : (matchedPreset ?? schedulePresets.first.$1),
+    );
     final amountC = TextEditingController(
       text: editing == null ? '' : fmtThousands(editing.amount),
     );
     final noteC = TextEditingController(text: editing?.note ?? '');
     String kind = editing?.kind ?? 'expense';
-    int dayOfMonth = editing?.dayOfMonth ?? 1;
+    final now = DateTime.now();
+    int dayOfMonth = editing?.dayOfMonth ?? now.day;
+    final daysInThisMonth = DateUtils.getDaysInMonth(now.year, now.month);
+    DateTime selectedDate = DateTime(
+      now.year,
+      now.month,
+      dayOfMonth.clamp(1, daysInThisMonth),
+    );
     String? fromWalletId =
         editing?.walletId ?? (wallets.isNotEmpty ? wallets.first.id : null);
     String? toWalletId =
@@ -492,7 +522,6 @@ class WalletsPage extends StatelessWidget {
                       ?.id ??
                   expenseCats.first.id)
             : null);
-    final now = DateTime.now();
     final alreadyExecuted = editing?.isExecutedForMonth(now) ?? false;
     bool executeNow = !alreadyExecuted && dayOfMonth == now.day;
 
@@ -593,7 +622,7 @@ class WalletsPage extends StatelessWidget {
                     const SizedBox(height: 6),
                     Container(
                       height: 48,
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      clipBehavior: Clip.antiAlias,
                       decoration: BoxDecoration(
                         color: glassFill(context),
                         borderRadius: BorderRadius.circular(16),
@@ -602,109 +631,99 @@ class WalletsPage extends StatelessWidget {
                           width: 1.2,
                         ),
                       ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: wallets.any((w) => w.id == fromWalletId)
-                              ? fromWalletId
-                              : (wallets.isNotEmpty ? wallets.first.id : null),
-                          isExpanded: true,
-                          borderRadius: BorderRadius.circular(16),
-                          dropdownColor: Colors.white.withValues(alpha: 0.96),
-                          icon: const Icon(
-                            Icons.keyboard_arrow_down_rounded,
-                            color: AppColors.inkSecondary,
-                          ),
-                          items: [
-                            for (final w in wallets)
-                              DropdownMenuItem<String>(
-                                value: w.id,
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      _typeIcon(w.type),
-                                      size: 18,
-                                      color: AppColors.accentBlue,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        '${w.name} (${fmtRp(w.balance)})',
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700,
-                                          color: AppColors.inkPrimary,
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                        clipBehavior: Clip.antiAlias,
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            value: wallets.any((w) => w.id == fromWalletId)
+                                ? fromWalletId
+                                : (wallets.isNotEmpty
+                                    ? wallets.first.id
+                                    : null),
+                            isExpanded: true,
+                            borderRadius: BorderRadius.circular(16),
+                            dropdownColor: Colors.white.withValues(alpha: 0.96),
+                            icon: const Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              color: AppColors.inkSecondary,
+                            ),
+                            items: [
+                              for (final w in wallets)
+                                DropdownMenuItem<String>(
+                                  value: w.id,
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        _typeIcon(w.type),
+                                        size: 18,
+                                        color: AppColors.accentBlue,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          '${w.name} (${fmtRp(w.balance)})',
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.inkPrimary,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                          ],
-                          onChanged: (val) {
-                            if (val == null) return;
-                            setSheet(() {
-                              fromWalletId = val;
-                              if (toWalletId == val) {
-                                toWalletId = wallets
-                                    .where((x) => x.id != val)
-                                    .firstOrNull
-                                    ?.id;
-                              }
-                            });
-                          },
+                            ],
+                            onChanged: (val) {
+                              if (val == null) return;
+                              setSheet(() {
+                                fromWalletId = val;
+                                if (toWalletId == val) {
+                                  toWalletId = wallets
+                                      .where((x) => x.id != val)
+                                      .firstOrNull
+                                      ?.id;
+                                }
+                              });
+                            },
+                          ),
                         ),
                       ),
                     ),
                     if (kind == 'expense') ...[
                       const SizedBox(height: 14),
-                      const FunLabel('3. Nama Jadwal (Pilih cepat atau ketik)'),
+                      const FunLabel('3. Nama Jadwal'),
                       const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          for (final preset in const [
-                            'Bayar Kost',
-                            'Listrik & Air',
-                            'WiFi / Internet',
-                            'Paket Data',
-                            'Alokasi Tabungan',
-                          ])
-                            FunPill(
-                              label: preset,
-                              selected:
-                                  titleC.text.trim().toLowerCase() ==
-                                  preset.toLowerCase(),
-                              onTap: () => setSheet(() => titleC.text = preset),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      _Field(
-                        controller: titleC,
-                        hint: 'Contoh: Bayar Kost-kostan',
-                      ),
-                      if (expenseCats.isNotEmpty) ...[
-                        const SizedBox(height: 14),
-                        const FunLabel('4. Kategori Pengeluaran'),
-                        const SizedBox(height: 6),
-                        Container(
-                          height: 48,
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          decoration: BoxDecoration(
-                            color: glassFill(context),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.9),
-                              width: 1.2,
-                            ),
+                      Container(
+                        height: 48,
+                        clipBehavior: Clip.antiAlias,
+                        decoration: BoxDecoration(
+                          color: glassFill(context),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            width: 1.2,
                           ),
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(16),
+                          clipBehavior: Clip.antiAlias,
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<String>(
-                              value: expenseCats.any((c) => c.id == categoryId)
-                                  ? categoryId
-                                  : expenseCats.first.id,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                              ),
+                              value: isCustomTitle
+                                  ? '__custom__'
+                                  : (schedulePresets.any(
+                                          (p) => p.$1 == titleC.text,
+                                        )
+                                        ? titleC.text
+                                        : schedulePresets.first.$1),
                               isExpanded: true,
                               borderRadius: BorderRadius.circular(16),
                               dropdownColor: Colors.white.withValues(
@@ -715,20 +734,20 @@ class WalletsPage extends StatelessWidget {
                                 color: AppColors.inkSecondary,
                               ),
                               items: [
-                                for (final cat in expenseCats)
+                                for (final preset in schedulePresets)
                                   DropdownMenuItem<String>(
-                                    value: cat.id,
+                                    value: preset.$1,
                                     child: Row(
                                       children: [
                                         Icon(
-                                          categoryIcon(cat.icon),
+                                          preset.$2,
                                           size: 18,
                                           color: AppColors.accentBlue,
                                         ),
                                         const SizedBox(width: 10),
                                         Expanded(
                                           child: Text(
-                                            cat.name,
+                                            preset.$1,
                                             overflow: TextOverflow.ellipsis,
                                             style: const TextStyle(
                                               fontSize: 13,
@@ -740,12 +759,127 @@ class WalletsPage extends StatelessWidget {
                                       ],
                                     ),
                                   ),
+                                const DropdownMenuItem<String>(
+                                  value: '__custom__',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.edit_outlined,
+                                        size: 18,
+                                        color: AppColors.inkSecondary,
+                                      ),
+                                      SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          'Lainnya (Ketik nama jadwal sendiri)',
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.inkSecondary,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ],
                               onChanged: (val) {
-                                if (val != null) {
-                                  setSheet(() => categoryId = val);
-                                }
+                                if (val == null) return;
+                                setSheet(() {
+                                  if (val == '__custom__') {
+                                    isCustomTitle = true;
+                                    if (schedulePresets.any(
+                                      (p) => p.$1 == titleC.text,
+                                    )) {
+                                      titleC.clear();
+                                    }
+                                  } else {
+                                    isCustomTitle = false;
+                                    titleC.text = val;
+                                  }
+                                });
                               },
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (isCustomTitle) ...[
+                        const SizedBox(height: 8),
+                        _Field(
+                          controller: titleC,
+                          hint: 'Contoh: Bayar Kost-kostan / Cicilan',
+                        ),
+                      ],
+                      if (expenseCats.isNotEmpty) ...[
+                        const SizedBox(height: 14),
+                        const FunLabel('4. Kategori Pengeluaran'),
+                        const SizedBox(height: 6),
+                        Container(
+                          height: 48,
+                          clipBehavior: Clip.antiAlias,
+                          decoration: BoxDecoration(
+                            color: glassFill(context),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              width: 1.2,
+                            ),
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(16),
+                            clipBehavior: Clip.antiAlias,
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 14),
+                                value:
+                                    expenseCats.any((c) => c.id == categoryId)
+                                        ? categoryId
+                                        : expenseCats.first.id,
+                                isExpanded: true,
+                                borderRadius: BorderRadius.circular(16),
+                                dropdownColor: Colors.white.withValues(
+                                  alpha: 0.96,
+                                ),
+                                icon: const Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  color: AppColors.inkSecondary,
+                                ),
+                                items: [
+                                  for (final cat in expenseCats)
+                                    DropdownMenuItem<String>(
+                                      value: cat.id,
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            categoryIcon(cat.icon),
+                                            size: 18,
+                                            color: AppColors.accentBlue,
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Text(
+                                              cat.name,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                                color: AppColors.inkPrimary,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    setSheet(() => categoryId = val);
+                                  }
+                                },
+                              ),
                             ),
                           ),
                         ),
@@ -756,7 +890,7 @@ class WalletsPage extends StatelessWidget {
                       const SizedBox(height: 6),
                       Container(
                         height: 48,
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        clipBehavior: Clip.antiAlias,
                         decoration: BoxDecoration(
                           color: glassFill(context),
                           borderRadius: BorderRadius.circular(16),
@@ -765,58 +899,66 @@ class WalletsPage extends StatelessWidget {
                             width: 1.2,
                           ),
                         ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: wallets.any(
-                                  (w) =>
-                                      w.id == toWalletId &&
-                                      w.id != fromWalletId,
-                                )
-                                ? toWalletId
-                                : wallets
-                                      .where((w) => w.id != fromWalletId)
-                                      .firstOrNull
-                                      ?.id,
-                            isExpanded: true,
-                            borderRadius: BorderRadius.circular(16),
-                            dropdownColor: Colors.white.withValues(alpha: 0.96),
-                            icon: const Icon(
-                              Icons.keyboard_arrow_down_rounded,
-                              color: AppColors.inkSecondary,
-                            ),
-                            items: [
-                              for (final w in wallets)
-                                if (w.id != fromWalletId)
-                                  DropdownMenuItem<String>(
-                                    value: w.id,
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          _typeIcon(w.type),
-                                          size: 18,
-                                          color: AppColors.accentBlue,
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: Text(
-                                            '${w.name} (${fmtRp(w.balance)})',
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w700,
-                                              color: AppColors.inkPrimary,
+                        child: Material(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(16),
+                          clipBehavior: Clip.antiAlias,
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 14),
+                              value: wallets.any(
+                                    (w) =>
+                                        w.id == toWalletId &&
+                                        w.id != fromWalletId,
+                                  )
+                                  ? toWalletId
+                                  : wallets
+                                        .where((w) => w.id != fromWalletId)
+                                        .firstOrNull
+                                        ?.id,
+                              isExpanded: true,
+                              borderRadius: BorderRadius.circular(16),
+                              dropdownColor:
+                                  Colors.white.withValues(alpha: 0.96),
+                              icon: const Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                color: AppColors.inkSecondary,
+                              ),
+                              items: [
+                                for (final w in wallets)
+                                  if (w.id != fromWalletId)
+                                    DropdownMenuItem<String>(
+                                      value: w.id,
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            _typeIcon(w.type),
+                                            size: 18,
+                                            color: AppColors.accentBlue,
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Text(
+                                              '${w.name} (${fmtRp(w.balance)})',
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                                color: AppColors.inkPrimary,
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                            ],
-                            onChanged: (val) {
-                              if (val != null) {
-                                setSheet(() => toWalletId = val);
-                              }
-                            },
+                              ],
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setSheet(() => toWalletId = val);
+                                }
+                              },
+                            ),
                           ),
                         ),
                       ),
@@ -876,20 +1018,110 @@ class WalletsPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 14),
                     FunLabel(
-                      '${kind == 'transfer' ? '5' : '6'}. Tanggal Eksekusi: Setiap Tanggal $dayOfMonth',
-                      icon: Icons.calendar_today_rounded,
+                      '${kind == 'transfer' ? '5' : '6'}. Tanggal Eksekusi',
                     ),
                     const SizedBox(height: 6),
-                    _DayOfMonthSelector(
-                      selectedDay: dayOfMonth,
-                      onChanged: (d) => setSheet(() {
-                        dayOfMonth = d;
-                        if (!alreadyExecuted && d == now.day) {
-                          executeNow = true;
-                        }
-                      }),
+                    Container(
+                      height: 48,
+                      clipBehavior: Clip.antiAlias,
+                      decoration: BoxDecoration(
+                        color: glassFill(context),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                        clipBehavior: Clip.antiAlias,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () async {
+                            final picked = await showDatePicker(
+                              context: ctx,
+                              initialDate: selectedDate,
+                              firstDate: DateTime(now.year - 1, 1, 1),
+                              lastDate: DateTime(now.year + 5, 12, 31),
+                              barrierColor: AppColors.glassScrim,
+                              helpText: 'Pilih Tanggal Eksekusi Rutin',
+                              builder: (context, child) {
+                                return Theme(
+                                  data: Theme.of(context).copyWith(
+                                    colorScheme: const ColorScheme.light(
+                                      primary: AppColors.accentBlue,
+                                      onPrimary: Colors.white,
+                                      surface: Color(0xF2FFFFFF),
+                                      onSurface: AppColors.inkPrimary,
+                                    ),
+                                    dialogTheme: DialogThemeData(
+                                      backgroundColor: Colors.white.withValues(
+                                        alpha: 0.92,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(28),
+                                        side: const BorderSide(
+                                          color: Colors.white,
+                                          width: 1.5,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  child: child!,
+                                );
+                              },
+                            );
+                            if (picked != null) {
+                              setSheet(() {
+                                selectedDate = picked;
+                                dayOfMonth = picked.day;
+                                final isCurrentMonth =
+                                    picked.year == now.year &&
+                                    picked.month == now.month;
+                                executeNow = !alreadyExecuted &&
+                                    isCurrentMonth &&
+                                    dayOfMonth == now.day;
+                              });
+                            }
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.calendar_today_outlined,
+                                  size: 18,
+                                  color: AppColors.accentBlue,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'Setiap Tanggal $dayOfMonth (${selectedDate.day} ${_shortMonths[selectedDate.month - 1]} ${selectedDate.year})',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.inkPrimary,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Icon(
+                                  Icons.edit_calendar_rounded,
+                                  size: 18,
+                                  color: AppColors.inkSecondary,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                    if (!alreadyExecuted && dayOfMonth <= now.day) ...[
+                    if (!alreadyExecuted &&
+                        selectedDate.year == now.year &&
+                        selectedDate.month == now.month &&
+                        dayOfMonth <= now.day) ...[
                       const SizedBox(height: 12),
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -935,6 +1167,15 @@ class WalletsPage extends StatelessWidget {
                           ? 'Simpan Jadwal Otomatis'
                           : 'Simpan Perubahan',
                       () async {
+                        if (kind == 'expense' &&
+                            isCustomTitle &&
+                            titleC.text.trim().isEmpty) {
+                          AppToast.showWarning(
+                            context,
+                            'Masukkan nama jadwal terlebih dahulu',
+                          );
+                          return;
+                        }
                         final amt = parseMoney(amountC.text);
                         if (amt <= 0) {
                           AppToast.showWarning(
@@ -984,6 +1225,13 @@ class WalletsPage extends StatelessWidget {
                                   .firstOrNull
                             : null;
 
+                        final canExecuteThisMonth = !alreadyExecuted &&
+                            selectedDate.year == now.year &&
+                            selectedDate.month == now.month &&
+                            dayOfMonth <= now.day;
+                        final shouldExecuteNow =
+                            canExecuteThisMonth && executeNow;
+
                         await _financeRepo.saveAutoSchedule(
                           id: editing?.id,
                           title: cleanTitle,
@@ -996,15 +1244,14 @@ class WalletsPage extends StatelessWidget {
                           budgetId: editing?.budgetId ?? matchingBudget?.id,
                           note: noteC.text,
                           isEnabled: editing?.isEnabled ?? true,
-                          executeNowForCurrentMonth:
-                              !alreadyExecuted && executeNow,
+                          executeNowForCurrentMonth: shouldExecuteNow,
                         );
 
                         nav.pop();
                         if (!context.mounted) return;
                         AppToast.showSuccess(
                           context,
-                          !alreadyExecuted && executeNow
+                          shouldExecuteNow
                               ? 'Jadwal disimpan & ${fmtRp(amt)} berhasil diproses untuk bulan ini'
                               : 'Jadwal otomatis setiap tanggal $dayOfMonth berhasil disimpan',
                         );
@@ -1387,23 +1634,27 @@ class _AllocationFormState extends State<_AllocationForm> {
     final nav = Navigator.of(context);
     final percents = {for (final e in _ctrls.entries) e.key: _pct(e.value)};
 
-    if (_autoTransfer && totalShare > 0 && widget.source.balance > 0) {
-      await widget.repo.distributeAllocations(
-        sourceWalletId: widget.source.id,
-        percents: percents,
-        baseAmount: widget.source.balance,
-      );
-      nav.pop();
-      if (!mounted) return;
-      AppToast.showSuccess(
-        context,
-        'Alokasi tersimpan & ${fmtRp(totalShare)} berhasil dipindahkan dari ${widget.source.name}',
-      );
-    } else {
-      await widget.repo.saveAllocations(widget.source.id, percents);
-      nav.pop();
-      if (!mounted) return;
-      AppToast.showSuccess(context, 'Aturan alokasi berhasil disimpan');
+    try {
+      if (_autoTransfer && totalShare > 0 && widget.source.balance > 0) {
+        await widget.repo.distributeAllocations(
+          sourceWalletId: widget.source.id,
+          percents: percents,
+          baseAmount: widget.source.balance,
+        );
+        nav.pop();
+        if (!mounted) return;
+        AppToast.showSuccess(
+          context,
+          'Alokasi tersimpan & ${fmtRp(totalShare)} berhasil dipindahkan dari ${widget.source.name}',
+        );
+      } else {
+        await widget.repo.saveAllocations(widget.source.id, percents);
+        nav.pop();
+        if (!mounted) return;
+        AppToast.showSuccess(context, 'Aturan alokasi berhasil disimpan');
+      }
+    } catch (e) {
+      if (mounted) AppToast.showError(context, e);
     }
   }
 
@@ -1765,7 +2016,6 @@ class _TransferFormState extends State<_TransferForm> {
         _gap(8),
         Container(
           height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
             color: glassFill(context),
             borderRadius: BorderRadius.circular(16),
@@ -1774,58 +2024,64 @@ class _TransferFormState extends State<_TransferForm> {
               width: 1.2,
             ),
           ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: widget.wallets.any((w) => w.id == _from)
-                  ? _from
-                  : (widget.wallets.isNotEmpty ? widget.wallets.first.id : null),
-              isExpanded: true,
-              borderRadius: BorderRadius.circular(16),
-              dropdownColor: Colors.white.withValues(alpha: 0.96),
-              icon: const Icon(
-                Icons.keyboard_arrow_down_rounded,
-                color: AppColors.inkSecondary,
-              ),
-              items: [
-                for (final w in widget.wallets)
-                  DropdownMenuItem<String>(
-                    value: w.id,
-                    child: Row(
-                      children: [
-                        Icon(
-                          _typeIcon(w.type),
-                          size: 18,
-                          color: AppColors.accentBlue,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            '${w.name} (${fmtRp(w.balance)})',
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.inkPrimary,
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
+            clipBehavior: Clip.antiAlias,
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: widget.wallets.any((w) => w.id == _from)
+                    ? _from
+                    : (widget.wallets.isNotEmpty ? widget.wallets.first.id : null),
+                isExpanded: true,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                borderRadius: BorderRadius.circular(16),
+                dropdownColor: Colors.white.withValues(alpha: 0.96),
+                icon: const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: AppColors.inkSecondary,
+                ),
+                items: [
+                  for (final w in widget.wallets)
+                    DropdownMenuItem<String>(
+                      value: w.id,
+                      child: Row(
+                        children: [
+                          Icon(
+                            _typeIcon(w.type),
+                            size: 18,
+                            color: AppColors.accentBlue,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              '${w.name} (${fmtRp(w.balance)})',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.inkPrimary,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-              ],
-              onChanged: (v) {
-                if (v == null) return;
-                setState(() {
-                  _from = v;
-                  if (_to == v ||
-                      !widget.wallets.any((w) => w.id == _to && w.id != v)) {
-                    final next = widget.wallets
-                        .where((w) => w.id != v)
-                        .firstOrNull;
-                    _to = next?.id ?? '';
-                  }
-                });
-              },
+                ],
+                onChanged: (v) {
+                  if (v == null) return;
+                  setState(() {
+                    _from = v;
+                    if (_to == v ||
+                        !widget.wallets.any((w) => w.id == _to && w.id != v)) {
+                      final next = widget.wallets
+                          .where((w) => w.id != v)
+                          .firstOrNull;
+                      _to = next?.id ?? '';
+                    }
+                  });
+                },
+              ),
             ),
           ),
         ),
@@ -1834,7 +2090,6 @@ class _TransferFormState extends State<_TransferForm> {
         _gap(8),
         Container(
           height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 14),
           decoration: BoxDecoration(
             color: glassFill(context),
             borderRadius: BorderRadius.circular(16),
@@ -1843,50 +2098,56 @@ class _TransferFormState extends State<_TransferForm> {
               width: 1.2,
             ),
           ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: toWallets.any((w) => w.id == _to)
-                  ? _to
-                  : (toWallets.isNotEmpty ? toWallets.first.id : null),
-              isExpanded: true,
-              borderRadius: BorderRadius.circular(16),
-              dropdownColor: Colors.white.withValues(alpha: 0.96),
-              icon: const Icon(
-                Icons.keyboard_arrow_down_rounded,
-                color: AppColors.inkSecondary,
-              ),
-              items: [
-                for (final w in toWallets)
-                  DropdownMenuItem<String>(
-                    value: w.id,
-                    child: Row(
-                      children: [
-                        Icon(
-                          _typeIcon(w.type),
-                          size: 18,
-                          color: AppColors.accentBlue,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            '${w.name} (${fmtRp(w.balance)})',
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.inkPrimary,
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
+            clipBehavior: Clip.antiAlias,
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: toWallets.any((w) => w.id == _to)
+                    ? _to
+                    : (toWallets.isNotEmpty ? toWallets.first.id : null),
+                isExpanded: true,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                borderRadius: BorderRadius.circular(16),
+                dropdownColor: Colors.white.withValues(alpha: 0.96),
+                icon: const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: AppColors.inkSecondary,
+                ),
+                items: [
+                  for (final w in toWallets)
+                    DropdownMenuItem<String>(
+                      value: w.id,
+                      child: Row(
+                        children: [
+                          Icon(
+                            _typeIcon(w.type),
+                            size: 18,
+                            color: AppColors.accentBlue,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              '${w.name} (${fmtRp(w.balance)})',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.inkPrimary,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-              ],
-              onChanged: (v) {
-                if (v != null) {
-                  setState(() => _to = v);
-                }
-              },
+                ],
+                onChanged: (v) {
+                  if (v != null) {
+                    setState(() => _to = v);
+                  }
+                },
+              ),
             ),
           ),
         ),
@@ -1902,88 +2163,6 @@ class _TransferFormState extends State<_TransferForm> {
         _Field(controller: _note, hint: 'Catatan'),
         _gap(20),
         _PrimaryButton('Pindahkan', _save),
-      ],
-    );
-  }
-}
-
-/// Pemilih tanggal 1..31 setiap bulan dengan chip cepat & deretan angka.
-class _DayOfMonthSelector extends StatelessWidget {
-  final int selectedDay;
-  final ValueChanged<int> onChanged;
-
-  const _DayOfMonthSelector({
-    required this.selectedDay,
-    required this.onChanged,
-  });
-
-  static const _quickDays = <(int, String)>[
-    (1, 'Tgl 1 • Awal Bulan'),
-    (5, 'Tgl 5'),
-    (10, 'Tgl 10'),
-    (15, 'Tgl 15'),
-    (25, 'Tgl 25 • Gajian'),
-    (28, 'Tgl 28'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            for (final q in _quickDays)
-              FunPill(
-                label: q.$2,
-                selected: selectedDay == q.$1,
-                onTap: () => onChanged(q.$1),
-              ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 38,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: 31,
-            separatorBuilder: (_, __) => const SizedBox(width: 6),
-            itemBuilder: (context, index) {
-              final day = index + 1;
-              final isSelected = day == selectedDay;
-              return GestureDetector(
-                onTap: () => onChanged(day),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 160),
-                  width: 38,
-                  height: 38,
-                  alignment: Alignment.center,
-                  decoration: isSelected
-                      ? auroraActiveDecoration(radius: 12)
-                      : BoxDecoration(
-                          color: glassFill(context),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.9),
-                            width: 1.2,
-                          ),
-                        ),
-                  child: Text(
-                    '$day',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: isSelected ? Colors.white : AppColors.inkPrimary,
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
       ],
     );
   }
@@ -2168,32 +2347,42 @@ class _AutoScheduleCard extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: statusBg,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(statusIcon, size: 13, color: statusFg),
-                    const SizedBox(width: 5),
-                    Text(
-                      statusLabel,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: statusFg,
-                      ),
+              Flexible(
+                fit: FlexFit.tight,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
                     ),
-                  ],
+                    decoration: BoxDecoration(
+                      color: statusBg,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(statusIcon, size: 13, color: statusFg),
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: Text(
+                            statusLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: statusFg,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               if (!executedThisMonth) ...[
                 FunPill(
                   label: 'Jalankan Sekarang',

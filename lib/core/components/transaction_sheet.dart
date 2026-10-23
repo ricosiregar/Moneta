@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../features/categories/categories_manage_page.dart';
+import '../database/finance_exception.dart';
 import '../database/finance_repository.dart';
 import '../database/wallet_repository.dart';
 import '../di/injection.dart';
@@ -154,7 +155,10 @@ class _TransactionSheetState extends State<TransactionSheet> {
       }
     } catch (e) {
       if (mounted) {
-        _toast('Gagal menyimpan transaksi', isError: true);
+        _toast(
+          e is FinanceException ? e.message : 'Gagal menyimpan transaksi',
+          isError: true,
+        );
       }
     }
   }
@@ -271,7 +275,7 @@ class _TransactionSheetState extends State<TransactionSheet> {
             else
               Container(
                 height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
+                clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
                   color: glassFill(context),
                   borderRadius: BorderRadius.circular(16),
@@ -280,48 +284,54 @@ class _TransactionSheetState extends State<TransactionSheet> {
                     width: 1.2,
                   ),
                 ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<int>(
-                    value: _wallet.clamp(0, _wallets.length - 1),
-                    isExpanded: true,
-                    borderRadius: BorderRadius.circular(16),
-                    dropdownColor: Colors.white.withValues(alpha: 0.96),
-                    icon: const Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      color: AppColors.inkSecondary,
-                    ),
-                    items: [
-                      for (int i = 0; i < _wallets.length; i++)
-                        DropdownMenuItem<int>(
-                          value: i,
-                          child: Row(
-                            children: [
-                              Icon(
-                                _walletTypeIcon(_wallets[i].type),
-                                size: 18,
-                                color: AppColors.accentBlue,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  '${_wallets[i].name} (${fmtRp(_wallets[i].balance)})',
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.inkPrimary,
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                  clipBehavior: Clip.antiAlias,
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<int>(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      value: _wallet.clamp(0, _wallets.length - 1),
+                      isExpanded: true,
+                      borderRadius: BorderRadius.circular(16),
+                      dropdownColor: Colors.white.withValues(alpha: 0.96),
+                      icon: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: AppColors.inkSecondary,
+                      ),
+                      items: [
+                        for (int i = 0; i < _wallets.length; i++)
+                          DropdownMenuItem<int>(
+                            value: i,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  _walletTypeIcon(_wallets[i].type),
+                                  size: 18,
+                                  color: AppColors.accentBlue,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    '${_wallets[i].name} (${fmtRp(_wallets[i].balance)})',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.inkPrimary,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) {
-                        setState(() => _wallet = val);
-                      }
-                    },
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() => _wallet = val);
+                        }
+                      },
+                    ),
                   ),
                 ),
               ),
@@ -331,7 +341,7 @@ class _TransactionSheetState extends State<TransactionSheet> {
             const SizedBox(height: 8),
             Container(
               height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+              clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
                 color: glassFill(context),
                 borderRadius: BorderRadius.circular(16),
@@ -340,9 +350,15 @@ class _TransactionSheetState extends State<TransactionSheet> {
                   width: 1.2,
                 ),
               ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<int>(
-                  value: cats.isEmpty ? null : _category.clamp(0, cats.length - 1),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+                clipBehavior: Clip.antiAlias,
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<int>(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    value:
+                        cats.isEmpty ? null : _category.clamp(0, cats.length - 1),
                   isExpanded: true,
                   borderRadius: BorderRadius.circular(16),
                   dropdownColor: Colors.white.withValues(alpha: 0.96),
@@ -419,6 +435,7 @@ class _TransactionSheetState extends State<TransactionSheet> {
                 ),
               ),
             ),
+          ),
             const SizedBox(height: 16),
 
             Row(

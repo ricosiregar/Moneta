@@ -26,7 +26,7 @@ CREATE TABLE public.wallets (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   name text NOT NULL,
-  type text NOT NULL CHECK (type = ANY (ARRAY['cash'::text, 'bank'::text, 'e_wallet'::text])),
+  type text NOT NULL CHECK (type = ANY (ARRAY['cash'::text, 'bank'::text, 'e_wallet'::text, 'investment'::text])),
   balance numeric NOT NULL DEFAULT 0,
   icon text,
   color text,

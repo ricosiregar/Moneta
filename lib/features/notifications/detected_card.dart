@@ -44,7 +44,7 @@ class _DetectedCardState extends State<DetectedCard> {
               const SizedBox(height: 8),
               Container(
                 height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
+                clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
                   color: glassFill(context),
                   borderRadius: BorderRadius.circular(16),
@@ -53,53 +53,59 @@ class _DetectedCardState extends State<DetectedCard> {
                     width: 1.2,
                   ),
                 ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: selectedId,
-                    isExpanded: true,
-                    borderRadius: BorderRadius.circular(16),
-                    dropdownColor: Colors.white.withValues(alpha: 0.96),
-                    icon: const Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      color: AppColors.inkSecondary,
-                    ),
-                    items: [
-                      for (final w in wallets)
-                        DropdownMenuItem<String>(
-                          value: w.id,
-                          child: Row(
-                            children: [
-                              Icon(
-                                switch (w.type) {
-                                  'bank' => Icons.account_balance_outlined,
-                                  'e_wallet' =>
-                                    Icons.account_balance_wallet_outlined,
-                                  _ => Icons.payments_outlined,
-                                },
-                                size: 18,
-                                color: AppColors.accentBlue,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  '${w.name} (${fmtRp(w.balance)})',
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.inkPrimary,
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                  clipBehavior: Clip.antiAlias,
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      value: selectedId,
+                      isExpanded: true,
+                      borderRadius: BorderRadius.circular(16),
+                      dropdownColor: Colors.white.withValues(alpha: 0.96),
+                      icon: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: AppColors.inkSecondary,
+                      ),
+                      items: [
+                        for (final w in wallets)
+                          DropdownMenuItem<String>(
+                            value: w.id,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  switch (w.type) {
+                                    'bank' => Icons.account_balance_outlined,
+                                    'e_wallet' =>
+                                      Icons.account_balance_wallet_outlined,
+                                    _ => Icons.payments_outlined,
+                                  },
+                                  size: 18,
+                                  color: AppColors.accentBlue,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    '${w.name} (${fmtRp(w.balance)})',
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.inkPrimary,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) {
-                        setSheet(() => selectedId = val);
-                      }
-                    },
+                      ],
+                      onChanged: (val) {
+                        if (val != null) {
+                          setSheet(() => selectedId = val);
+                        }
+                      },
+                    ),
                   ),
                 ),
               ),
@@ -194,6 +200,9 @@ class _DetectedCardState extends State<DetectedCard> {
                   ),
                 InkWell(
                   onTap: _repo.ignoreAll,
+                  borderRadius: const BorderRadius.vertical(
+                    bottom: Radius.circular(24),
+                  ),
                   child: const Padding(
                     padding: EdgeInsets.symmetric(vertical: 12),
                     child: Center(

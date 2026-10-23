@@ -258,27 +258,36 @@ class _AddCategorySheetState extends State<AddCategorySheet> {
                       final opt = kCategoryIconOptions[idx];
                       final isSelected = opt.key == _selectedIconKey;
 
-                      return InkWell(
-                        onTap: () => setState(() => _selectedIconKey = opt.key),
-                        borderRadius: BorderRadius.circular(14),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppColors.accentBlue.withValues(alpha: 0.14)
+                              : Colors.white.withValues(alpha: 0.65),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
                             color: isSelected
-                                ? AppColors.accentBlue.withValues(alpha: 0.14)
-                                : Colors.white.withValues(alpha: 0.65),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: isSelected
-                                  ? AppColors.accentBlue
-                                  : Colors.white.withValues(alpha: 0.9),
-                              width: isSelected ? 2 : 1.1,
-                            ),
+                                ? AppColors.accentBlue
+                                : Colors.white.withValues(alpha: 0.9),
+                            width: isSelected ? 2 : 1.1,
                           ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                          clipBehavior: Clip.antiAlias,
+                          child: InkWell(
+                            onTap: () =>
+                                setState(() => _selectedIconKey = opt.key),
+                            borderRadius: BorderRadius.circular(14),
+                            customBorder: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(6),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
                               Icon(
                                 opt.icon,
                                 size: 24,
@@ -302,7 +311,9 @@ class _AddCategorySheetState extends State<AddCategorySheet> {
                                       : AppColors.inkSecondary,
                                 ),
                               ),
-                            ],
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       );

@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqlite3_flutter_libs/sqlite3_flutter_libs.dart';
 
+import 'finance_exception.dart';
 import 'tables.dart';
 
 part 'app_database.g.dart';
@@ -69,25 +70,109 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  /// Index untuk query saldo (subquery per wallet), analitik, dan deduplikasi
+  /// notifikasi. Idempotent (IF NOT EXISTS) sehingga aman dipanggil di
+  /// onCreate, onUpgrade, maupun beforeOpen: pengguna lama ikut mendapatkannya.
+  Future<void> _ensureIndexes() async {
+    const statements = <String>[
+      'CREATE INDEX IF NOT EXISTS idx_tx_wallet_date '
+          'ON transactions (wallet_id, date)',
+      'CREATE INDEX IF NOT EXISTS idx_tx_category '
+          'ON transactions (category_id)',
+      'CREATE INDEX IF NOT EXISTS idx_detected_status '
+          'ON detected_transactions (status)',
+      'CREATE INDEX IF NOT EXISTS idx_detected_dup '
+          'ON detected_transactions (source_package, amount, type, detected_at)',
+      'CREATE INDEX IF NOT EXISTS idx_transfers_from '
+          'ON transfers (from_wallet_id)',
+      'CREATE INDEX IF NOT EXISTS idx_transfers_to '
+          'ON transfers (to_wallet_id)',
+      'CREATE INDEX IF NOT EXISTS idx_jar_entries_wallet '
+          'ON saving_jar_entries (wallet_id)',
+      'CREATE INDEX IF NOT EXISTS idx_jar_entries_jar '
+          'ON saving_jar_entries (jar_id)',
+    ];
+    for (final s in statements) {
+      await customStatement(s);
+    }
+  }
+
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
           await m.createAll();
-          await customStatement(
-            'CREATE INDEX IF NOT EXISTS idx_tx_wallet_date '
-            'ON transactions (wallet_id, date)',
-          );
-          await customStatement(
-            'CREATE INDEX IF NOT EXISTS idx_detected_status '
-            'ON detected_transactions (status)',
-          );
+          await _ensureIndexes();
           await _ensureAutoSchedulesTable();
+        },
+        // Tambahkan migrasi berikutnya di sini, mis.:
+        //   if (from < 2) await m.addColumn(wallets, wallets.newColumn);
+        // schemaVersion harus dinaikkan bersamaan; tanpa onUpgrade, Drift
+        // akan melempar error pada pengguna lama saat versi dinaikkan.
+        onUpgrade: (m, from, to) async {
+          await _ensureAutoSchedulesTable();
+          await _ensureIndexes();
         },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
           await _ensureAutoSchedulesTable();
+          await _ensureIndexes();
         },
       );
+
+  /// Hapus PERMANEN seluruh data lokal. Dipakai saat akun yang login berbeda
+  /// dari pemilik data lokal, agar data user lain tidak bocor / ter-upload.
+  Future<void> wipeAllData() async {
+    // PRAGMA foreign_keys tidak berefek di dalam transaksi, jadi diatur di luar.
+    await customStatement('PRAGMA foreign_keys = OFF');
+    try {
+      await transaction(() async {
+        await customStatement('DELETE FROM auto_schedules');
+        for (final t in allTables) {
+          await customStatement('DELETE FROM ${t.actualTableName}');
+        }
+      });
+      markTablesUpdated(allTables);
+    } finally {
+      await customStatement('PRAGMA foreign_keys = ON');
+    }
+  }
+
+  /// Pastikan saldo [walletId] cukup untuk mengeluarkan [needed]. Melempar
+  /// [FinanceException] bila dompet tidak ditemukan atau saldo kurang.
+  /// Panggil di dalam `transaction()` agar pengecekan dan penulisan atomik.
+  Future<void> requireBalance(String walletId, double needed) async {
+    final row = await customSelect(
+      '''
+      SELECT w.opening_balance
+        + COALESCE((SELECT SUM(amount) FROM transactions t
+            WHERE t.wallet_id = w.id AND t.type = 'income'
+              AND t.deleted_at IS NULL), 0)
+        - COALESCE((SELECT SUM(amount) FROM transactions t
+            WHERE t.wallet_id = w.id AND t.type = 'expense'
+              AND t.deleted_at IS NULL), 0)
+        + COALESCE((SELECT SUM(amount) FROM transfers x
+            WHERE x.to_wallet_id = w.id AND x.deleted_at IS NULL), 0)
+        - COALESCE((SELECT SUM(amount + fee) FROM transfers x
+            WHERE x.from_wallet_id = w.id AND x.deleted_at IS NULL), 0)
+        - COALESCE((SELECT SUM(amount) FROM saving_jar_entries e
+            WHERE e.wallet_id = w.id AND e.type = 'deposit'
+              AND e.deleted_at IS NULL), 0)
+        + COALESCE((SELECT SUM(amount) FROM saving_jar_entries e
+            WHERE e.wallet_id = w.id AND e.type = 'withdraw'
+              AND e.deleted_at IS NULL), 0)
+        AS balance
+      FROM wallets w
+      WHERE w.id = ? AND w.deleted_at IS NULL
+      ''',
+      variables: [Variable.withString(walletId)],
+    ).getSingleOrNull();
+    if (row == null) throw const FinanceException('Dompet tidak ditemukan');
+    final balance = row.read<double>('balance');
+    // Toleransi 0.005 untuk galat pembulatan floating point.
+    if (balance + 0.005 < needed) {
+      throw const FinanceException('Saldo dompet tidak mencukupi');
+    }
+  }
 
   /// Saldo tiap wallet:
   /// opening_balance + pemasukan - pengeluaran + transfer masuk

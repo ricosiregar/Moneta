@@ -26,15 +26,9 @@ class PrimaryGradientButton extends StatelessWidget {
         boxShadow: onPressed != null && !isLoading
             ? [
                 BoxShadow(
-                  color: AppColors.primarySlate.withValues(alpha: 0.28),
-                  blurRadius: 18,
+                  color: AppColors.primarySlate.withValues(alpha: 0.24),
+                  blurRadius: 16,
                   offset: const Offset(0, 6),
-                ),
-                const BoxShadow(
-                  color: Color(0x30FFFFFF),
-                  blurRadius: 0,
-                  spreadRadius: 1,
-                  offset: Offset(0, 1),
                 ),
               ]
             : null,
@@ -122,12 +116,6 @@ class GoogleSignInButton extends StatelessWidget {
             color: Color(0x0C0F172A),
             blurRadius: 14,
             offset: Offset(0, 4),
-          ),
-          BoxShadow(
-            color: Color(0x50FFFFFF),
-            blurRadius: 0,
-            spreadRadius: 1,
-            offset: Offset(0, 1),
           ),
         ],
       ),

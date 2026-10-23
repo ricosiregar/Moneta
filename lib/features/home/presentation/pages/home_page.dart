@@ -360,28 +360,117 @@ class _DashboardBodyState extends State<_DashboardBody> {
                 const FunLabel('Ambil dari dompet'),
                 const SizedBox(height: 6),
                 StatefulBuilder(
-                  builder: (c, setSheet) => Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      FunPill(
-                        label: 'Tanpa dompet',
-                        selected: walletId == null,
-                        onTap: () => setSheet(() => walletId = null),
+                  builder: (c, setSheet) => Container(
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      color: const Color(0xD9FFFFFF),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: AppColors.glassBorder,
+                        width: 1.2,
                       ),
-                      for (final w in _walletViews)
-                        FunPill(
-                          label: w.name,
-                          selected: walletId == w.id,
-                          onTap: () => setSheet(() => walletId = w.id),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(18),
+                      clipBehavior: Clip.antiAlias,
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 4,
+                          ),
+                          value: _walletViews.any((w) => w.id == walletId)
+                              ? walletId!
+                              : '__none__',
+                        isExpanded: true,
+                        icon: const Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: AppColors.accentBlue,
                         ),
-                    ],
+                        borderRadius: BorderRadius.circular(18),
+                        dropdownColor: Colors.white,
+                        menuMaxHeight: 280,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.inkPrimary,
+                        ),
+                        items: [
+                          DropdownMenuItem<String>(
+                            value: '__none__',
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 28,
+                                  height: 28,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEFF6FF),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const ChickenBankIcon(
+                                    size: 17,
+                                    color: AppColors.accentBlue,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                const Expanded(
+                                  child: Text(
+                                    'Tanpa dompet (catat di celengan saja)',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          for (final w in _walletViews)
+                            DropdownMenuItem<String>(
+                              value: w.id,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 28,
+                                    height: 28,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEFF6FF),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Icon(
+                                      w.type == 'cash'
+                                          ? Icons.payments_rounded
+                                          : w.type == 'ewallet'
+                                          ? Icons.phone_android_rounded
+                                          : Icons.account_balance_rounded,
+                                      size: 16,
+                                      color: AppColors.accentBlue,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      '${w.name} (${fmtRp(w.balance)})',
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                        onChanged: (val) {
+                          setSheet(() {
+                            walletId = val == '__none__' ? null : val;
+                          });
+                        },
+                      ),
+                    ),
                   ),
                 ),
+              ),
               ],
               const SizedBox(height: 24),
               GestureDetector(
-                onTap: () {
+                onTap: () async {
                   final v = parseMoney(amountC.text);
                   if (v <= 0) {
                     AppToast.showWarning(
@@ -403,20 +492,25 @@ class _DashboardBodyState extends State<_DashboardBody> {
                     }
                   }
                   final repo = getIt<FinanceRepository>();
-                  if (deposit == null) {
-                    final n = nameC.text.trim();
-                    repo.addJar(
-                      title: n.isEmpty ? 'Celengan Baru' : n,
-                      target: v,
-                    );
-                  } else {
-                    repo.deposit(
-                      jarId: deposit.id,
-                      amount: v,
-                      walletId: walletId,
-                    );
+                  try {
+                    if (deposit == null) {
+                      final n = nameC.text.trim();
+                      await repo.addJar(
+                        title: n.isEmpty ? 'Celengan Baru' : n,
+                        target: v,
+                      );
+                    } else {
+                      await repo.deposit(
+                        jarId: deposit.id,
+                        amount: v,
+                        walletId: walletId,
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) AppToast.showError(context, e);
+                    return;
                   }
-                  Navigator.pop(ctx);
+                  if (ctx.mounted) Navigator.pop(ctx);
                 },
                 child: Container(
                   height: 52,
@@ -487,27 +581,109 @@ class _DashboardBodyState extends State<_DashboardBody> {
                 children: [
                   const FunLabel('Kategori'),
                   const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      FunPill(
-                        label: 'Semua',
-                        selected: categoryId == null,
-                        onTap: editing != null
-                            ? null
-                            : () => setSheet(() => categoryId = null),
+                  Container(
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      color: const Color(0xD9FFFFFF),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: AppColors.glassBorder,
+                        width: 1.2,
                       ),
-                      for (final cat in _expenseCats)
-                        FunPill(
-                          label: cat.name,
-                          icon: categoryIcon(cat.icon),
-                          selected: categoryId == cat.id,
-                          onTap: editing != null
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(18),
+                      clipBehavior: Clip.antiAlias,
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 4,
+                          ),
+                          value: _expenseCats.any((c) => c.id == categoryId)
+                              ? categoryId!
+                              : '__all__',
+                          isExpanded: true,
+                          icon: const Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            color: AppColors.accentBlue,
+                          ),
+                          borderRadius: BorderRadius.circular(18),
+                          dropdownColor: Colors.white,
+                          menuMaxHeight: 280,
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.inkPrimary,
+                          ),
+                          items: [
+                            DropdownMenuItem<String>(
+                              value: '__all__',
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 28,
+                                    height: 28,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEFF6FF),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(
+                                      Icons.grid_view_rounded,
+                                      size: 16,
+                                      color: AppColors.accentBlue,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  const Expanded(
+                                    child: Text(
+                                      'Semua Kategori',
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            for (final cat in _expenseCats)
+                              DropdownMenuItem<String>(
+                                value: cat.id,
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 28,
+                                      height: 28,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEFF6FF),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Icon(
+                                        categoryIcon(cat.icon),
+                                        size: 16,
+                                        color: AppColors.accentBlue,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        cat.name,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                          onChanged: editing != null
                               ? null
-                              : () => setSheet(() => categoryId = cat.id),
+                              : (val) {
+                                  setSheet(() {
+                                    categoryId = val == '__all__' ? null : val;
+                                  });
+                                },
                         ),
-                    ],
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   const FunLabel('Batas per bulan (Rp)'),
@@ -654,6 +830,12 @@ class _DashboardBodyState extends State<_DashboardBody> {
               for (int i = 0; i < items.length; i++) ...[
                 if (i > 0) const Divider(height: 1, color: Color(0xFFF1F5F9)),
                 InkWell(
+                  borderRadius: BorderRadius.vertical(
+                    top: i == 0 ? const Radius.circular(24) : Radius.zero,
+                    bottom: i == items.length - 1
+                        ? const Radius.circular(24)
+                        : Radius.zero,
+                  ),
                   onTap: () => _showBudgetSheet(editing: items[i]),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -943,10 +1125,16 @@ class _DashboardBodyState extends State<_DashboardBody> {
     try {
       final r = await getIt<SyncService>().sync();
       if (mounted) {
-        AppToast.showSuccess(
-          context,
-          'Sinkron selesai • ${r.pushed} terkirim, ${r.pulled} diterima',
-        );
+        final msg =
+            'Sinkron selesai • ${r.pushed} terkirim, ${r.pulled} diterima';
+        if (r.failed > 0) {
+          AppToast.showWarning(
+            context,
+            '$msg • ${r.failed} data dilewati & akan dicoba lagi',
+          );
+        } else {
+          AppToast.showSuccess(context, msg);
+        }
       }
     } catch (e) {
       if (mounted) {

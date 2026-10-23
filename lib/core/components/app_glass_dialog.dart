@@ -101,7 +101,6 @@ class AppGlassDialog extends StatelessWidget {
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
               child: Container(
-                padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   gradient: AppColors.glassSheetGradient,
                   borderRadius: const BorderRadius.all(r),
@@ -117,93 +116,91 @@ class AppGlassDialog extends StatelessWidget {
                     shadowColor: Color(0x120F172A),
                     glowColor: Color(0x20FFFFFF),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Icon Badge (if provided)
-                      if (customIcon != null) ...[
-                        customIcon!,
-                        const SizedBox(height: 16),
-                      ] else if (icon != null) ...[
-                        Container(
-                          width: 54,
-                          height: 54,
-                          decoration: BoxDecoration(
-                            color: (iconColor ??
-                                    (isDestructive
-                                        ? AppColors.expense
-                                        : AppColors.accentBlue))
-                                .withValues(alpha: 0.14),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.92),
-                              width: 1.5,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: (iconColor ??
-                                        (isDestructive
-                                            ? AppColors.expense
-                                            : AppColors.accentBlue))
-                                    .withValues(alpha: 0.2),
-                                blurRadius: 16,
-                                offset: const Offset(0, 4),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Icon Badge (if provided)
+                        if (customIcon != null) ...[
+                          customIcon!,
+                          const SizedBox(height: 16),
+                        ] else if (icon != null) ...[
+                          Container(
+                            width: 54,
+                            height: 54,
+                            decoration: BoxDecoration(
+                              color: (iconColor ??
+                                      (isDestructive
+                                          ? AppColors.expense
+                                          : AppColors.accentBlue))
+                                  .withValues(alpha: 0.14),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.92),
+                                width: 1.5,
                               ),
-                            ],
+                              boxShadow: [
+                                BoxShadow(
+                                  color: (iconColor ??
+                                          (isDestructive
+                                              ? AppColors.expense
+                                              : AppColors.accentBlue))
+                                      .withValues(alpha: 0.2),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              icon,
+                              size: 26,
+                              color: iconColor ??
+                                  (isDestructive
+                                      ? AppColors.expense
+                                      : AppColors.accentBlue),
+                            ),
                           ),
-                          child: Icon(
-                            icon,
-                            size: 26,
-                            color: iconColor ??
-                                (isDestructive
-                                    ? AppColors.expense
-                                    : AppColors.accentBlue),
+                          const SizedBox(height: 16),
+                        ],
+
+                        // Title
+                        Text(
+                          title,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.2,
+                            color: AppColors.inkPrimary,
                           ),
                         ),
-                        const SizedBox(height: 16),
-                      ],
+                        const SizedBox(height: 8),
 
-                      // Title
-                      Text(
-                        title,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.2,
-                          color: AppColors.inkPrimary,
+                        // Message
+                        Text(
+                          message,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            height: 1.4,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.inkSecondary,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
+                        const SizedBox(height: 24),
 
-                      // Message
-                      Text(
-                        message,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 13.5,
-                          height: 1.4,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.inkSecondary,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Actions
-                      if (customActions != null)
-                        Row(children: customActions!)
-                      else
-                        Row(
-                          children: [
-                            // Cancel Button
-                            if (showCancel) ...[
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: onCancel ??
-                                      () => Navigator.of(context).pop(),
+                        // Actions
+                        if (customActions != null)
+                          Row(children: customActions!)
+                        else
+                          Row(
+                            children: [
+                              // Cancel Button
+                              if (showCancel) ...[
+                                Expanded(
                                   child: Container(
                                     height: 46,
-                                    alignment: Alignment.center,
                                     decoration: BoxDecoration(
                                       gradient: AppColors.glassCardGradient,
                                       borderRadius: BorderRadius.circular(999),
@@ -213,27 +210,35 @@ class AppGlassDialog extends StatelessWidget {
                                         width: 1.2,
                                       ),
                                     ),
-                                    child: Text(
-                                      cancelLabel,
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.inkSecondary,
+                                    child: Material(
+                                      color: Colors.transparent,
+                                      borderRadius: BorderRadius.circular(999),
+                                      clipBehavior: Clip.antiAlias,
+                                      child: InkWell(
+                                        borderRadius: BorderRadius.circular(999),
+                                        onTap: onCancel ??
+                                            () => Navigator.of(context).pop(),
+                                        child: Center(
+                                          child: Text(
+                                            cancelLabel,
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.inkSecondary,
+                                            ),
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                            ],
+                                const SizedBox(width: 12),
+                              ],
 
-                            // Confirm Button
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: onConfirm,
+                              // Confirm Button
+                              Expanded(
                                 child: Container(
                                   height: 46,
-                                  alignment: Alignment.center,
                                   decoration: BoxDecoration(
                                     gradient: isDestructive
                                         ? const LinearGradient(
@@ -255,26 +260,37 @@ class AppGlassDialog extends StatelessWidget {
                                         color: (isDestructive
                                                 ? AppColors.expense
                                                 : AppColors.accentBlue)
-                                            .withValues(alpha: 0.32),
-                                        blurRadius: 14,
-                                        offset: const Offset(0, 5),
+                                            .withValues(alpha: 0.28),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
                                       ),
                                     ],
                                   ),
-                                  child: Text(
-                                    confirmLabel,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    borderRadius: BorderRadius.circular(999),
+                                    clipBehavior: Clip.antiAlias,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(999),
+                                      onTap: onConfirm,
+                                      child: Center(
+                                        child: Text(
+                                          confirmLabel,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                    ],
+                            ],
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),

@@ -402,44 +402,54 @@ class _WalletFormPageState extends State<WalletFormPage> {
         for (int i = 0; i < types.length; i++) ...[
           if (i > 0) const SizedBox(width: 8),
           Expanded(
-            child: InkWell(
-              onTap: () => _onTypeChanged(types[i].$2),
-              borderRadius: BorderRadius.circular(16),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: _type == types[i].$2
-                    ? auroraActiveDecoration(radius: 16)
-                    : BoxDecoration(
-                        gradient: AppColors.glassCardGradient,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          width: 1.2,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              decoration: _type == types[i].$2
+                  ? auroraActiveDecoration(radius: 16)
+                  : BoxDecoration(
+                      gradient: AppColors.glassCardGradient,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        width: 1.2,
+                      ),
+                      boxShadow: AppColors.glassShadowSoft,
+                    ),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () => _onTypeChanged(types[i].$2),
+                  borderRadius: BorderRadius.circular(16),
+                  customBorder: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Column(
+                      children: [
+                        Icon(
+                          types[i].$3,
+                          size: 22,
+                          color: _type == types[i].$2
+                              ? Colors.white
+                              : AppColors.inkSecondary,
                         ),
-                        boxShadow: AppColors.glassShadowSoft,
-                      ),
-                child: Column(
-                  children: [
-                    Icon(
-                      types[i].$3,
-                      size: 22,
-                      color: _type == types[i].$2
-                          ? Colors.white
-                          : AppColors.inkSecondary,
+                        const SizedBox(height: 6),
+                        Text(
+                          types[i].$1,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: _type == types[i].$2
+                                ? Colors.white
+                                : AppColors.inkPrimary,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      types[i].$1,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: _type == types[i].$2
-                            ? Colors.white
-                            : AppColors.inkPrimary,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -481,7 +491,7 @@ class _WalletFormPageState extends State<WalletFormPage> {
         if (presets != null) ...[
           Container(
             height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
+            clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               color: glassFill(context),
               borderRadius: BorderRadius.circular(16),
@@ -490,97 +500,103 @@ class _WalletFormPageState extends State<WalletFormPage> {
                 width: 1.2,
               ),
             ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: dropdownValue,
-                isExpanded: true,
-                borderRadius: BorderRadius.circular(16),
-                dropdownColor: Colors.white.withValues(alpha: 0.96),
-                icon: const Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  color: AppColors.inkSecondary,
-                ),
-                hint: Text(
-                  _type == 'bank'
-                      ? 'Pilih daftar bank...'
-                      : 'Pilih daftar e-wallet...',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.inkMuted,
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(16),
+              clipBehavior: Clip.antiAlias,
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  value: dropdownValue,
+                  isExpanded: true,
+                  borderRadius: BorderRadius.circular(16),
+                  dropdownColor: Colors.white.withValues(alpha: 0.96),
+                  icon: const Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: AppColors.inkSecondary,
                   ),
-                ),
-                items: [
-                  for (final p in presets)
+                  hint: Text(
+                    _type == 'bank'
+                        ? 'Pilih daftar bank...'
+                        : 'Pilih daftar e-wallet...',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.inkMuted,
+                    ),
+                  ),
+                  items: [
+                    for (final p in presets)
+                      DropdownMenuItem<String>(
+                        value: p,
+                        child: Row(
+                          children: [
+                            Icon(
+                              _type == 'bank'
+                                  ? Icons.account_balance_outlined
+                                  : Icons.account_balance_wallet_outlined,
+                              size: 18,
+                              color: AppColors.accentBlue,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                p,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.inkPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     DropdownMenuItem<String>(
-                      value: p,
+                      value: '__custom__',
                       child: Row(
                         children: [
-                          Icon(
-                            _type == 'bank'
-                                ? Icons.account_balance_outlined
-                                : Icons.account_balance_wallet_outlined,
+                          const Icon(
+                            Icons.edit_outlined,
                             size: 18,
-                            color: AppColors.accentBlue,
+                            color: AppColors.inkSecondary,
                           ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              p,
+                              _type == 'bank'
+                                  ? 'Lainnya (Ketik nama bank sendiri)'
+                                  : 'Lainnya (Ketik e-wallet sendiri)',
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.inkPrimary,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.inkSecondary,
                               ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                  DropdownMenuItem<String>(
-                    value: '__custom__',
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.edit_outlined,
-                          size: 18,
-                          color: AppColors.inkSecondary,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            _type == 'bank'
-                                ? 'Lainnya (Ketik nama bank sendiri)'
-                                : 'Lainnya (Ketik e-wallet sendiri)',
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.inkSecondary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-                onChanged: (val) {
-                  if (val == '__custom__') {
-                    setState(() {
-                      _isCustomName = true;
-                      if (matchedPreset != null) {
-                        _nameCtrl.clear();
-                      }
-                      _selectedEcosystems.clear();
-                      for (final ctrl in _ecosystemOpeningCtrls.values) {
-                        ctrl.clear();
-                      }
-                    });
-                  } else if (val != null) {
-                    _selectPreset(val);
-                  }
-                },
+                  ],
+                  onChanged: (val) {
+                    if (val == '__custom__') {
+                      setState(() {
+                        _isCustomName = true;
+                        if (matchedPreset != null) {
+                          _nameCtrl.clear();
+                        }
+                        _selectedEcosystems.clear();
+                        for (final ctrl in _ecosystemOpeningCtrls.values) {
+                          ctrl.clear();
+                        }
+                      });
+                    } else if (val != null) {
+                      _selectPreset(val);
+                    }
+                  },
+                ),
               ),
             ),
           ),
@@ -792,59 +808,69 @@ class _WalletFormPageState extends State<WalletFormPage> {
               runSpacing: 8,
               children: [
                 for (final p in parents)
-                  InkWell(
-                    onTap: () => setState(() => _parentId = p.id),
-                    borderRadius: BorderRadius.circular(12),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: _parentId == p.id
-                          ? auroraActiveDecoration(radius: 12)
-                          : BoxDecoration(
-                              color: glassFill(context),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.9),
-                                width: 1.2,
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    decoration: _parentId == p.id
+                        ? auroraActiveDecoration(radius: 12)
+                        : BoxDecoration(
+                            color: glassFill(context),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              width: 1.2,
+                            ),
+                          ),
+                    child: Material(
+                      color: Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: () => setState(() => _parentId = p.id),
+                        borderRadius: BorderRadius.circular(12),
+                        customBorder: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _parentId == p.id
+                                    ? Icons.check_circle_rounded
+                                    : Icons.account_balance_wallet_outlined,
+                                size: 16,
+                                color: _parentId == p.id
+                                    ? Colors.white
+                                    : AppColors.inkSecondary,
                               ),
-                            ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _parentId == p.id
-                                ? Icons.check_circle_rounded
-                                : Icons.account_balance_wallet_outlined,
-                            size: 16,
-                            color: _parentId == p.id
-                                ? Colors.white
-                                : AppColors.inkSecondary,
+                              const SizedBox(width: 8),
+                              Text(
+                                p.name,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: _parentId == p.id
+                                      ? Colors.white
+                                      : AppColors.inkPrimary,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '(${fmtRp(p.balance)})',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: _parentId == p.id
+                                      ? Colors.white.withValues(alpha: 0.85)
+                                      : AppColors.inkMuted,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            p.name,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: _parentId == p.id
-                                  ? Colors.white
-                                  : AppColors.inkPrimary,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '(${fmtRp(p.balance)})',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: _parentId == p.id
-                                  ? Colors.white.withValues(alpha: 0.85)
-                                  : AppColors.inkMuted,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),

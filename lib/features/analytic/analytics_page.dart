@@ -493,6 +493,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     Row(
                       children: [
                         DonutChart(
+                          key: ValueKey(
+                            'donut_${_selectedCatIndex}_${selectedCat?.name}',
+                          ),
                           size: 138,
                           innerRatio: 0.65,
                           values: selectedCat != null

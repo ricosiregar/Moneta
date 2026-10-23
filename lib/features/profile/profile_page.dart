@@ -8,7 +8,6 @@ import '../../core/components/app_toast.dart';
 import '../../core/components/fun_widgets.dart';
 import '../../core/components/app_glass_dialog.dart';
 import '../../core/di/injection.dart';
-import '../../core/sync/sync_service.dart';
 import '../../core/theme/app_colors.dart';
 import '../categories/categories_manage_page.dart';
 import '../notifications/notification_settings_page.dart';
@@ -77,25 +76,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-
   Future<void> _run(Future<void> Function() action, {String? success}) async {
     try {
       await action();
       if (success != null && mounted) AppToast.showSuccess(context, success);
-    } catch (e) {
-      if (mounted) AppToast.showError(context, e);
-    }
-  }
-
-  Future<void> _syncNow() async {
-    try {
-      final r = await getIt<SyncService>().sync();
-      if (mounted) {
-        AppToast.showSuccess(
-          context,
-          'Sinkron selesai \u2022 ${r.pushed} terkirim, ${r.pulled} diterima',
-        );
-      }
     } catch (e) {
       if (mounted) AppToast.showError(context, e);
     }
@@ -258,12 +242,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                   _Section('Data & Backup', Icons.cloud_outlined, [
                     _Row(
-                      Icons.cloud_sync_outlined,
-                      'Sinkronisasi Cloud',
-                      'Cadangkan data ke akun kamu',
-                      onTap: _syncNow,
-                    ),
-                    _Row(
                       Icons.file_download_outlined,
                       'Ekspor JSON',
                       'Simpan semua data',
@@ -291,12 +269,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ]),
                   _Section('Akun', Icons.person_outline_rounded, [
-                    _Row(
-                      Icons.logout_rounded,
-                      'Data terenkripsi & aman',
-                      'Datamu tersimpan aman dan hanya bisa kamu akses.',
-                      onTap: () => _showLogoutSheet(context),
-                    ),
                     _Row(
                       Icons.logout_rounded,
                       'Keluar dari Akun',

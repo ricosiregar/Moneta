@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import 'app_database.dart';
+import 'finance_exception.dart';
 
 // ── View models ────────────────────────────────────────────────────────────
 
@@ -182,23 +183,33 @@ class FinanceRepository {
     ('Lainnya', 'income', 'more'),
   ];
 
-  /// Isi kategori bawaan bila belum ada (dipanggil saat startup).
-  Future<void> seedDefaultCategories() async {
-    final existing = await (_db.select(_db.categories)
-          ..where((c) => c.deletedAt.isNull())
-          ..limit(1))
-        .get();
+  /// Isi kategori bawaan bila belum ada (dipanggil setelah login).
+  ///
+  /// ID dibuat deterministik (UUID v5 dari [userId] + tipe + nama) sehingga
+  /// perangkat/instalasi berbeda untuk user yang sama menghasilkan ID yang
+  /// sama dan tidak menggandakan kategori saat sinkron. Seed hanya berjalan
+  /// bila tabel kategori kosong sama sekali (termasuk yang sudah dihapus),
+  /// jadi kategori bawaan yang sengaja dihapus user tidak muncul lagi.
+  Future<void> seedDefaultCategories({required String userId}) async {
+    final existing = await (_db.select(_db.categories)..limit(1)).get();
     if (existing.isNotEmpty) return;
     await _db.batch((b) {
-      b.insertAll(_db.categories, [
-        for (final d in _defaults)
-          CategoriesCompanion.insert(
-            id: _uuid.v4(),
-            name: d.$1,
-            type: d.$2,
-            icon: Value(d.$3),
-          ),
-      ]);
+      b.insertAll(
+        _db.categories,
+        [
+          for (final d in _defaults)
+            CategoriesCompanion.insert(
+              id: _uuid.v5(
+                Namespace.url.value,
+                'moneta-default-category:$userId:${d.$2}:${d.$1}',
+              ),
+              name: d.$1,
+              type: d.$2,
+              icon: Value(d.$3),
+            ),
+        ],
+        mode: InsertMode.insertOrIgnore,
+      );
     });
   }
 
@@ -247,7 +258,31 @@ class FinanceRepository {
     );
   }
 
-  Future<void> deleteCategory(String id) => _softDelete(_db.categories, id);
+  /// Hapus kategori. Anggaran milik kategori ini ikut dihapus (kalau tidak,
+  /// tampil sebagai "Semua kategori") dan jadwal otomatis dilepas dari
+  /// kategori. Transaksi lama tetap ada dan dihitung sebagai "Lainnya".
+  Future<void> deleteCategory(String id) async {
+    final now = _s(DateTime.now());
+    await _db.transaction(() async {
+      await _db.customUpdate(
+        "UPDATE budget_limits SET deleted_at = ?, updated_at = ?, "
+        "sync_status = 'dirty' WHERE category_id = ? AND deleted_at IS NULL",
+        variables: [
+          Variable.withInt(now),
+          Variable.withInt(now),
+          Variable.withString(id),
+        ],
+        updates: {_db.budgetLimits},
+      );
+      await _db.customUpdate(
+        "UPDATE auto_schedules SET category_id = NULL, updated_at = ?, "
+        "sync_status = 'dirty' WHERE category_id = ? AND deleted_at IS NULL",
+        variables: [Variable.withInt(now), Variable.withString(id)],
+        updates: {_db.budgetLimits},
+      );
+      await _softDelete(_db.categories, id);
+    });
+  }
 
   // ── Transaksi ──
 
@@ -260,21 +295,27 @@ class FinanceRepository {
     String? note,
     DateTime? date,
   }) async {
+    ensureValidAmount(amount);
     final cleanNote = (note == null || note.trim().isEmpty) ? null : note.trim();
-    await _db.into(_db.transactions).insert(
-          TransactionsCompanion.insert(
-            id: _uuid.v4(),
-            walletId: walletId,
-            categoryId: Value(categoryId),
-            title: (title == null || title.trim().isEmpty)
-                ? (cleanNote ?? (type == 'income' ? 'Pemasukan' : 'Pengeluaran'))
-                : title.trim(),
-            amount: amount,
-            type: type,
-            date: Value(date ?? DateTime.now()),
-            note: Value(cleanNote),
-          ),
-        );
+    await _db.transaction(() async {
+      // Pengeluaran tidak boleh melebihi saldo dompet (atomik dengan insert).
+      if (type == 'expense') await _db.requireBalance(walletId, amount);
+      await _db.into(_db.transactions).insert(
+            TransactionsCompanion.insert(
+              id: _uuid.v4(),
+              walletId: walletId,
+              categoryId: Value(categoryId),
+              title: (title == null || title.trim().isEmpty)
+                  ? (cleanNote ??
+                      (type == 'income' ? 'Pemasukan' : 'Pengeluaran'))
+                  : title.trim(),
+              amount: amount,
+              type: type,
+              date: Value(date ?? DateTime.now()),
+              note: Value(cleanNote),
+            ),
+          );
+    });
   }
 
   Future<void> deleteTransaction(String id) => _softDelete(_db.transactions, id);
@@ -332,6 +373,7 @@ class FinanceRepository {
         LEFT JOIN categories c ON c.id = t.category_id
         LEFT JOIN wallets w ON w.id = t.wallet_id
         WHERE t.deleted_at IS NULL
+          AND t.wallet_id IN (SELECT id FROM wallets WHERE deleted_at IS NULL)
         UNION ALL
         SELECT x.id, 'transfer', COALESCE(x.note, 'Pindah uang'), 'Pindah Uang',
                'swap', fw.name || ' → ' || tw.name, x.amount, x.date,
@@ -401,9 +443,10 @@ class FinanceRepository {
         COUNT(*) AS cnt
       FROM transactions
       WHERE deleted_at IS NULL AND date >= ? AND date < ?$whereWallet
+        AND wallet_id IN (SELECT id FROM wallets WHERE deleted_at IS NULL)
       ''',
       variables: vars,
-      readsFrom: {_db.transactions},
+      readsFrom: {_db.transactions, _db.wallets},
     ).watchSingle().map((r) => PeriodSummary(
           r.read<double>('inc'),
           r.read<double>('exp'),
@@ -421,17 +464,20 @@ class FinanceRepository {
     ];
     return _db.customSelect(
       '''
-      SELECT t.category_id, COALESCE(c.name, 'Lainnya') AS name, c.icon AS icon,
+      SELECT CASE WHEN c.id IS NULL THEN NULL ELSE t.category_id END AS category_id,
+             COALESCE(c.name, 'Lainnya') AS name, c.icon AS icon,
              SUM(t.amount) AS total, COUNT(t.id) AS cnt
       FROM transactions t
-      LEFT JOIN categories c ON c.id = t.category_id
+      LEFT JOIN categories c ON c.id = t.category_id AND c.deleted_at IS NULL
       WHERE t.deleted_at IS NULL AND t.type = 'expense'
+        AND t.wallet_id IN (SELECT id FROM wallets WHERE deleted_at IS NULL)
         AND t.date >= ? AND t.date < ?$whereWallet
-      GROUP BY t.category_id, COALESCE(c.name, 'Lainnya'), c.icon
+      GROUP BY CASE WHEN c.id IS NULL THEN NULL ELSE t.category_id END,
+               COALESCE(c.name, 'Lainnya'), c.icon
       ORDER BY total DESC
       ''',
       variables: vars,
-      readsFrom: {_db.transactions, _db.categories},
+      readsFrom: {_db.transactions, _db.categories, _db.wallets},
     ).watch().map((rows) => [
           for (final r in rows)
             CategoryTotal(
@@ -460,10 +506,11 @@ class FinanceRepository {
         COALESCE(SUM(CASE WHEN type = 'expense' THEN amount END), 0) AS exp
       FROM transactions
       WHERE deleted_at IS NULL AND date >= ? AND date < ?$whereWallet
+        AND wallet_id IN (SELECT id FROM wallets WHERE deleted_at IS NULL)
       GROUP BY day ORDER BY day
       ''',
       variables: vars,
-      readsFrom: {_db.transactions},
+      readsFrom: {_db.transactions, _db.wallets},
     ).watch().map((rows) => [
           for (final r in rows)
             (
@@ -485,7 +532,7 @@ class FinanceRepository {
     final whereCat = categoryId != null
         ? ' AND t.category_id = ?'
         : (categoryName != null
-            ? ' AND (c.name = ? OR (? = \'Lainnya\' AND t.category_id IS NULL))'
+            ? ' AND (c.name = ? OR (? = \'Lainnya\' AND c.id IS NULL))'
             : '');
     final whereWallet = walletId != null ? ' AND t.wallet_id = ?' : '';
     final vars = <Variable>[
@@ -505,9 +552,10 @@ class FinanceRepository {
              COALESCE(w.name, '-') AS wallet, t.amount AS amount, t.date AS date,
              t.wallet_id AS wallet_id, t.category_id AS category_id
       FROM transactions t
-      LEFT JOIN categories c ON c.id = t.category_id
+      LEFT JOIN categories c ON c.id = t.category_id AND c.deleted_at IS NULL
       LEFT JOIN wallets w ON w.id = t.wallet_id
       WHERE t.deleted_at IS NULL AND t.type = 'expense'
+        AND t.wallet_id IN (SELECT id FROM wallets WHERE deleted_at IS NULL)
         AND t.date >= ? AND t.date < ?$whereCat$whereWallet
       ORDER BY t.date DESC
       ''',
@@ -544,7 +592,8 @@ class FinanceRepository {
              b.monthly_limit AS lim,
              COALESCE((SELECT SUM(t.amount) FROM transactions t
                WHERE t.deleted_at IS NULL AND t.type = 'expense'
-                 AND t.date >= ? AND t.date < ?
+                 AND t.wallet_id IN (SELECT id FROM wallets WHERE deleted_at IS NULL)
+                  AND t.date >= ? AND t.date < ?
                  AND (b.category_id IS NULL OR t.category_id = b.category_id)), 0)
                AS spent
       FROM budget_limits b
@@ -558,7 +607,12 @@ class FinanceRepository {
         Variable.withInt(month),
         Variable.withInt(year),
       ],
-      readsFrom: {_db.budgetLimits, _db.transactions, _db.categories},
+      readsFrom: {
+        _db.budgetLimits,
+        _db.transactions,
+        _db.categories,
+        _db.wallets,
+      },
     ).watch().map((rows) => [
           for (final r in rows)
             BudgetView(
@@ -578,28 +632,46 @@ class FinanceRepository {
     required int month,
     required int year,
   }) async {
-    // Satu anggaran per kategori per bulan.
-    final existing = await (_db.select(_db.budgetLimits)
+    // Satu anggaran per kategori per bulan. Duplikat (mis. hasil sinkron dua
+    // perangkat) tidak boleh membuat error: ambil yang tertua, buang sisanya.
+    final matches = await (_db.select(_db.budgetLimits)
           ..where((b) =>
               b.deletedAt.isNull() &
               b.month.equals(month) &
               b.year.equals(year) &
               (categoryId == null
                   ? b.categoryId.isNull()
-                  : b.categoryId.equals(categoryId))))
-        .getSingleOrNull();
-    final budgetId = id ?? existing?.id ?? _uuid.v4();
-    await _db.into(_db.budgetLimits).insertOnConflictUpdate(
-          BudgetLimitsCompanion(
-            id: Value(budgetId),
-            categoryId: Value(categoryId),
-            monthlyLimit: Value(limit),
-            month: Value(month),
-            year: Value(year),
-            updatedAt: Value(DateTime.now()),
-            syncStatus: const Value('dirty'),
-          ),
+                  : b.categoryId.equals(categoryId)))
+          ..orderBy([(b) => OrderingTerm(expression: b.createdAt)]))
+        .get();
+    final budgetId = id ?? (matches.isNotEmpty ? matches.first.id : _uuid.v4());
+    await _db.transaction(() async {
+      final now = _s(DateTime.now());
+      for (final m in matches) {
+        if (m.id == budgetId) continue;
+        await _db.customUpdate(
+          "UPDATE budget_limits SET deleted_at = ?, updated_at = ?, "
+          "sync_status = 'dirty' WHERE id = ?",
+          variables: [
+            Variable.withInt(now),
+            Variable.withInt(now),
+            Variable.withString(m.id),
+          ],
+          updates: {_db.budgetLimits},
         );
+      }
+      await _db.into(_db.budgetLimits).insertOnConflictUpdate(
+            BudgetLimitsCompanion(
+              id: Value(budgetId),
+              categoryId: Value(categoryId),
+              monthlyLimit: Value(limit),
+              month: Value(month),
+              year: Value(year),
+              updatedAt: Value(DateTime.now()),
+              syncStatus: const Value('dirty'),
+            ),
+          );
+    });
     return budgetId;
   }
 
@@ -729,14 +801,16 @@ class FinanceRepository {
     final int createdAt =
         existingRow?.readNullable<int>('created_at') ?? nowSec;
 
-    // Jika tanggal sudah lewat di bulan ini dan user memilih untuk TIDAK
+    // Jika tanggal <= hari ini di bulan ini dan user memilih untuk TIDAK
     // mengeksekusi untuk bulan ini sekarang, tandai SKIP untuk periode bulan ini
-    // agar baru berjalan mulai bulan depan.
+    // agar baru berjalan mulai bulan depan. Jika tanggal > hari ini (misal besok),
+    // biarkan null agar otomatis dieksekusi saat tanggalnya tiba.
+    final canRunThisMonth = effectiveDay <= now.day;
+    final shouldRunNow = executeNowForCurrentMonth && canRunThisMonth;
     if (lastPeriod != currentPeriod) {
-      if (effectiveDay < now.day && !executeNowForCurrentMonth) {
+      if (canRunThisMonth && !shouldRunNow) {
         lastPeriod = 'SKIP:$currentPeriod';
-      } else if (effectiveDay >= now.day &&
-          lastPeriod == 'SKIP:$currentPeriod') {
+      } else if (!canRunThisMonth && lastPeriod == 'SKIP:$currentPeriod') {
         lastPeriod = null;
       }
     }
@@ -784,7 +858,7 @@ class FinanceRepository {
       updates: {_db.budgetLimits},
     );
 
-    if (executeNowForCurrentMonth && lastPeriod != currentPeriod) {
+    if (shouldRunNow && lastPeriod != currentPeriod) {
       await executeAutoScheduleNow(scheduleId, now: now);
     }
 
@@ -818,9 +892,14 @@ class FinanceRepository {
   }
 
   /// Eksekusi satu jadwal otomatis sekarang juga dan catat transaksi / transfernya.
+  ///
+  /// Mengembalikan null bila saldo kurang, atau (kecuali [force]) bila jadwal
+  /// sudah dieksekusi untuk periode bulan ini. [force] dipakai untuk aksi
+  /// manual user ("Jalankan sekarang").
   Future<AutoScheduleView?> executeAutoScheduleNow(
     String id, {
     DateTime? now,
+    bool force = false,
   }) async {
     final current = now ?? DateTime.now();
     final nowSec = _s(current);
@@ -830,38 +909,45 @@ class FinanceRepository {
     final target = all.where((s) => s.id == id).firstOrNull;
     if (target == null) return null;
 
-    final balRow = await _db.customSelect(
-      '''
-      SELECT w.opening_balance
-        + COALESCE((SELECT SUM(amount) FROM transactions t
-            WHERE t.wallet_id = w.id AND t.type = 'income'
-              AND t.deleted_at IS NULL), 0)
-        - COALESCE((SELECT SUM(amount) FROM transactions t
-            WHERE t.wallet_id = w.id AND t.type = 'expense'
-              AND t.deleted_at IS NULL), 0)
-        + COALESCE((SELECT SUM(amount) FROM transfers x
-            WHERE x.to_wallet_id = w.id AND x.deleted_at IS NULL), 0)
-        - COALESCE((SELECT SUM(amount + fee) FROM transfers x
-            WHERE x.from_wallet_id = w.id AND x.deleted_at IS NULL), 0)
-        - COALESCE((SELECT SUM(amount) FROM saving_jar_entries e
-            WHERE e.wallet_id = w.id AND e.type = 'deposit'
-              AND e.deleted_at IS NULL), 0)
-        + COALESCE((SELECT SUM(amount) FROM saving_jar_entries e
-            WHERE e.wallet_id = w.id AND e.type = 'withdraw'
-              AND e.deleted_at IS NULL), 0)
-        AS balance
-      FROM wallets w
-      WHERE w.id = ? AND w.deleted_at IS NULL AND w.is_archived = 0
-      ''',
-      variables: [Variable.withString(target.walletId)],
-    ).getSingleOrNull();
-
-    final walletBalance = balRow?.read<double>('balance') ?? 0;
-    if (walletBalance < target.amount) {
-      return null;
-    }
-
+    var ran = false;
     await _db.transaction(() async {
+      // Cek ulang di dalam transaksi agar tidak ada eksekusi ganda.
+      if (!force) {
+        final lp = await _db.customSelect(
+          'SELECT last_executed_period FROM auto_schedules WHERE id = ?',
+          variables: [Variable.withString(id)],
+        ).getSingleOrNull();
+        if (lp?.readNullable<String>('last_executed_period') == period) return;
+      }
+
+      final balRow = await _db.customSelect(
+        '''
+        SELECT w.opening_balance
+          + COALESCE((SELECT SUM(amount) FROM transactions t
+              WHERE t.wallet_id = w.id AND t.type = 'income'
+                AND t.deleted_at IS NULL), 0)
+          - COALESCE((SELECT SUM(amount) FROM transactions t
+              WHERE t.wallet_id = w.id AND t.type = 'expense'
+                AND t.deleted_at IS NULL), 0)
+          + COALESCE((SELECT SUM(amount) FROM transfers x
+              WHERE x.to_wallet_id = w.id AND x.deleted_at IS NULL), 0)
+          - COALESCE((SELECT SUM(amount + fee) FROM transfers x
+              WHERE x.from_wallet_id = w.id AND x.deleted_at IS NULL), 0)
+          - COALESCE((SELECT SUM(amount) FROM saving_jar_entries e
+              WHERE e.wallet_id = w.id AND e.type = 'deposit'
+                AND e.deleted_at IS NULL), 0)
+          + COALESCE((SELECT SUM(amount) FROM saving_jar_entries e
+              WHERE e.wallet_id = w.id AND e.type = 'withdraw'
+                AND e.deleted_at IS NULL), 0)
+          AS balance
+        FROM wallets w
+        WHERE w.id = ? AND w.deleted_at IS NULL AND w.is_archived = 0
+        ''',
+        variables: [Variable.withString(target.walletId)],
+      ).getSingleOrNull();
+
+      final walletBalance = balRow?.read<double>('balance') ?? 0;
+      if (walletBalance < target.amount) return;
       if (target.kind == 'transfer' &&
           target.toWalletId != null &&
           target.toWalletId != target.walletId) {
@@ -908,8 +994,10 @@ class FinanceRepository {
         ],
         updates: {_db.budgetLimits, _db.transactions, _db.transfers},
       );
+      ran = true;
     });
 
+    if (!ran) return null;
     final updated = await getAutoSchedules();
     return updated.where((s) => s.id == id).firstOrNull;
   }
@@ -956,6 +1044,7 @@ class FinanceRepository {
     DateTime? targetDate,
     String? icon,
   }) async {
+    ensureValidAmount(target, label: 'Target');
     await _db.into(_db.savingJars).insert(SavingJarsCompanion.insert(
           id: _uuid.v4(),
           title: title.trim(),
@@ -965,7 +1054,25 @@ class FinanceRepository {
         ));
   }
 
-  Future<void> deleteJar(String id) => _softDelete(_db.savingJars, id);
+  /// Hapus celengan beserta seluruh entrinya. Entri ikut di-soft-delete agar
+  /// setoran yang sudah memotong saldo wallet kembali ke wallet (saldo dihitung
+  /// dari entri yang belum dihapus).
+  Future<void> deleteJar(String id) async {
+    final now = _s(DateTime.now());
+    await _db.transaction(() async {
+      await _db.customUpdate(
+        "UPDATE saving_jar_entries SET deleted_at = ?, updated_at = ?, "
+        "sync_status = 'dirty' WHERE jar_id = ? AND deleted_at IS NULL",
+        variables: [
+          Variable.withInt(now),
+          Variable.withInt(now),
+          Variable.withString(id),
+        ],
+        updates: {_db.savingJarEntries},
+      );
+      await _softDelete(_db.savingJars, id);
+    });
+  }
 
   /// Setor ke celengan; dicatat sebagai entri dan menambah `current_amount`.
   Future<void> deposit({
@@ -974,10 +1081,16 @@ class FinanceRepository {
     String? walletId,
     String? note,
   }) async {
+    ensureValidAmount(amount, label: 'Nominal setoran');
     await _db.transaction(() async {
       final jar = await (_db.select(_db.savingJars)
-            ..where((j) => j.id.equals(jarId)))
-          .getSingle();
+            ..where((j) => j.id.equals(jarId) & j.deletedAt.isNull()))
+          .getSingleOrNull();
+      if (jar == null) {
+        throw const FinanceException('Celengan tidak ditemukan');
+      }
+      // Dana setoran berasal dari dompet; saldonya harus cukup.
+      if (walletId != null) await _db.requireBalance(walletId, amount);
       final newAmount = jar.currentAmount + amount;
       await _db.into(_db.savingJarEntries).insert(
             SavingJarEntriesCompanion.insert(

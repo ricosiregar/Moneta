@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import 'app_database.dart';
+import 'finance_exception.dart';
 
 /// Wallet beserta saldo hasil hitung ledger.
 class WalletView {
@@ -185,7 +186,62 @@ class WalletRepository {
   /// Soft delete. Wallet anak dilepas dari induknya.
   Future<void> deleteWallet(String id) async {
     final now = DateTime.now();
+    final nowSec = now.millisecondsSinceEpoch ~/ 1000;
     await _db.transaction(() async {
+      // Bersihkan data yang bergantung pada wallet ini.
+      await _db.customUpdate(
+        "UPDATE auto_schedules SET deleted_at = ?, updated_at = ?, "
+        "sync_status = 'dirty' "
+        'WHERE (wallet_id = ? OR to_wallet_id = ?) AND deleted_at IS NULL',
+        variables: [
+          Variable.withInt(nowSec),
+          Variable.withInt(nowSec),
+          Variable.withString(id),
+          Variable.withString(id),
+        ],
+        updates: {_db.budgetLimits},
+      );
+      await _db.customUpdate(
+        "UPDATE wallet_allocations SET deleted_at = ?, updated_at = ?, "
+        "sync_status = 'dirty' "
+        'WHERE (source_wallet_id = ? OR target_wallet_id = ?) '
+        'AND deleted_at IS NULL',
+        variables: [
+          Variable.withInt(nowSec),
+          Variable.withInt(nowSec),
+          Variable.withString(id),
+          Variable.withString(id),
+        ],
+        updates: {_db.walletAllocations},
+      );
+      await _db.customUpdate(
+        "UPDATE notification_sources SET deleted_at = ?, updated_at = ?, "
+        "sync_status = 'dirty' WHERE wallet_id = ? AND deleted_at IS NULL",
+        variables: [
+          Variable.withInt(nowSec),
+          Variable.withInt(nowSec),
+          Variable.withString(id),
+        ],
+        updates: {_db.notificationSources},
+      );
+      await _db.customUpdate(
+        'UPDATE user_settings SET '
+        'default_expense_wallet_id = CASE WHEN default_expense_wallet_id = ? '
+        'THEN NULL ELSE default_expense_wallet_id END, '
+        'default_income_wallet_id = CASE WHEN default_income_wallet_id = ? '
+        'THEN NULL ELSE default_income_wallet_id END, '
+        "updated_at = ?, sync_status = 'dirty' "
+        'WHERE default_expense_wallet_id = ? OR default_income_wallet_id = ?',
+        variables: [
+          Variable.withString(id),
+          Variable.withString(id),
+          Variable.withInt(nowSec),
+          Variable.withString(id),
+          Variable.withString(id),
+        ],
+        updates: {_db.userSettingsTable},
+      );
+
       await (_db.update(_db.wallets)..where((w) => w.parentId.equals(id))).write(
         WalletsCompanion(
           parentId: const Value(null),
@@ -211,6 +267,23 @@ class WalletRepository {
     String sourceWalletId,
     Map<String, double> percents,
   ) async {
+    var totalPct = 0.0;
+    for (final e in percents.entries) {
+      final v = e.value;
+      if (v.isNaN || v.isInfinite) {
+        throw const FinanceException('Persentase alokasi tidak valid');
+      }
+      if (v <= 0) continue;
+      if (e.key == sourceWalletId) {
+        throw const FinanceException(
+            'Dompet tidak bisa dialokasikan ke dirinya sendiri');
+      }
+      totalPct += v;
+    }
+    // Toleransi kecil untuk galat floating point (mis. 33.3 + 33.3 + 33.4).
+    if (totalPct > 100.0001) {
+      throw const FinanceException('Total alokasi tidak boleh lebih dari 100%');
+    }
     final now = DateTime.now();
     await _db.transaction(() async {
       await (_db.update(_db.walletAllocations)
@@ -247,17 +320,29 @@ class WalletRepository {
     String? note,
     String? allocationId,
   }) async {
-    await _db.into(_db.transfers).insert(
-          TransfersCompanion.insert(
-            id: _uuid.v4(),
-            fromWalletId: fromWalletId,
-            toWalletId: toWalletId,
-            amount: amount,
-            fee: Value(fee),
-            note: Value((note == null || note.trim().isEmpty) ? null : note.trim()),
-            allocationId: Value(allocationId),
-          ),
-        );
+    ensureValidAmount(amount, label: 'Nominal transfer');
+    if (fee.isNaN || fee.isInfinite || fee < 0) {
+      throw const FinanceException('Biaya transfer tidak valid');
+    }
+    if (fromWalletId == toWalletId) {
+      throw const FinanceException('Dompet asal dan tujuan harus berbeda');
+    }
+    await _db.transaction(() async {
+      // Saldo asal harus cukup untuk nominal + biaya (atomik dengan insert).
+      await _db.requireBalance(fromWalletId, amount + fee);
+      await _db.into(_db.transfers).insert(
+            TransfersCompanion.insert(
+              id: _uuid.v4(),
+              fromWalletId: fromWalletId,
+              toWalletId: toWalletId,
+              amount: amount,
+              fee: Value(fee),
+              note: Value(
+                  (note == null || note.trim().isEmpty) ? null : note.trim()),
+              allocationId: Value(allocationId),
+            ),
+          );
+    });
   }
 
   /// Bagi [amount] dari wallet sumber ke anak sesuai aturan alokasi
@@ -294,10 +379,27 @@ class WalletRepository {
       final rules = await getAllocations(sourceWalletId);
       final ruleMap = {for (final r in rules) r.targetWalletId: r};
 
-      for (final e in percents.entries) {
+      // Hitung bagian tiap dompet, lalu koreksi selisih pembulatan pada bagian
+      // terakhir agar totalnya pas dengan persen total (tidak lebih/kurang).
+      final entries = [
+        for (final e in percents.entries)
+          if (e.value > 0 && (baseAmount * e.value / 100).roundToDouble() > 0) e,
+      ];
+      final shares = [
+        for (final e in entries) (baseAmount * e.value / 100).roundToDouble(),
+      ];
+      if (shares.isNotEmpty) {
+        final totalPct = entries.fold<double>(0, (a, e) => a + e.value);
+        final target = (baseAmount * totalPct / 100).roundToDouble();
+        final sum = shares.fold<double>(0, (a, s) => a + s);
+        final last = shares.length - 1;
+        shares[last] = (shares[last] + (target - sum)).clamp(0.0, double.infinity);
+      }
+
+      for (var i = 0; i < entries.length; i++) {
+        final e = entries[i];
         final pct = e.value;
-        if (pct <= 0) continue;
-        final share = (baseAmount * pct / 100).roundToDouble();
+        final share = shares[i];
         if (share <= 0) continue;
         final rule = ruleMap[e.key];
         await createTransfer(

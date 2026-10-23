@@ -286,10 +286,6 @@ class _TopToastWidgetState extends State<_TopToastWidget>
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
@@ -314,102 +310,109 @@ class _TopToastWidgetState extends State<_TopToastWidget>
                         shadowColor: _accentColor.withValues(alpha: 0.12),
                         glowColor: Colors.white.withValues(alpha: 0.25),
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          // Frosted glass icon badge with glowing border
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Colors.white.withValues(alpha: 0.92),
-                                  _accentColor.withValues(alpha: 0.16),
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(13),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.95),
-                                width: 1.2,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: _accentColor.withValues(alpha: 0.18),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: Center(
-                              child: Icon(
-                                _icon,
-                                color: _accentColor,
-                                size: 20,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-
-                          // Text content
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (widget.title != null) ...[
-                                  Text(
-                                    widget.title!,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w800,
-                                      color: _accentColor,
-                                      letterSpacing: -0.2,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                ],
-                                Text(
-                                  widget.message,
-                                  style: const TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.inkPrimary,
-                                    height: 1.35,
-                                  ),
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(width: 8),
-
-                          // Frosted close button pill
-                          GestureDetector(
-                            onTap: _handleDismiss,
-                            behavior: HitTestBehavior.opaque,
-                            child: Container(
-                              width: 28,
-                              height: 28,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            // Frosted glass icon badge with glowing border
+                            Container(
+                              width: 40,
+                              height: 40,
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.65),
-                                shape: BoxShape.circle,
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Colors.white.withValues(alpha: 0.92),
+                                    _accentColor.withValues(alpha: 0.16),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(13),
                                 border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.9),
+                                  color: Colors.white.withValues(alpha: 0.95),
+                                  width: 1.2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: _accentColor.withValues(alpha: 0.18),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  _icon,
+                                  color: _accentColor,
+                                  size: 20,
                                 ),
                               ),
-                              child: Icon(
-                                Icons.close_rounded,
-                                size: 15,
-                                color: AppColors.inkMuted.withValues(alpha: 0.9),
+                            ),
+                            const SizedBox(width: 12),
+
+                            // Text content
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (widget.title != null) ...[
+                                    Text(
+                                      widget.title!,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w800,
+                                        color: _accentColor,
+                                        letterSpacing: -0.2,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                  ],
+                                  Text(
+                                    widget.message,
+                                    style: const TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.inkPrimary,
+                                      height: 1.35,
+                                    ),
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
-                        ],
+
+                            const SizedBox(width: 8),
+
+                            // Frosted close button pill
+                            GestureDetector(
+                              onTap: _handleDismiss,
+                              behavior: HitTestBehavior.opaque,
+                              child: Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.65),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.9),
+                                  ),
+                                ),
+                                child: Icon(
+                                  Icons.close_rounded,
+                                  size: 15,
+                                  color:
+                                      AppColors.inkMuted.withValues(alpha: 0.9),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),

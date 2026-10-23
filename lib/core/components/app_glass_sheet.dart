@@ -84,11 +84,15 @@ class AppGlassSheet extends StatelessWidget {
                   shadowColor: const Color(0x100F172A),
                   glowColor: const Color(0x20FFFFFF),
                 ),
-                child: Padding(
-                  padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
-                  child: SafeArea(
-                    top: false,
-                    child: Column(
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.vertical(top: sheetRadius),
+                  clipBehavior: Clip.antiAlias,
+                  child: Padding(
+                    padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
+                    child: SafeArea(
+                      top: false,
+                      child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -169,6 +173,7 @@ class AppGlassSheet extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }

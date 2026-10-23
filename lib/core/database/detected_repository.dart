@@ -70,7 +70,13 @@ class DetectedRepository {
         ]);
   }
 
-  /// Simpan hasil deteksi. Notifikasi yang sama (fingerprint sama) diabaikan.
+  /// Jendela waktu untuk menganggap dua notifikasi identik sebagai duplikat.
+  static const _dupWindowSeconds = 180;
+
+  /// Simpan hasil deteksi. Notifikasi yang sama (fingerprint sama) diabaikan,
+  /// begitu pula notifikasi identik (paket, nominal, tipe) dalam jendela
+  /// ±[_dupWindowSeconds] detik, yang biasanya berasal dari event live yang
+  /// terbaca ulang lewat scan tray atau notifikasi yang diposting ulang.
   Future<void> addDetected({
     required String fingerprint,
     required String? walletId,
@@ -80,30 +86,54 @@ class DetectedRepository {
     String? merchant,
     required DateTime detectedAt,
   }) async {
-    await _db.into(_db.detectedTransactions).insert(
-          DetectedTransactionsCompanion.insert(
-            id: _uuid.v4(),
-            fingerprint: fingerprint,
-            amount: amount,
-            type: type,
-            walletId: Value(walletId),
-            sourcePackage: Value(sourcePackage),
-            merchant: Value(merchant),
-            detectedAt: Value(detectedAt),
-          ),
-          mode: InsertMode.insertOrIgnore,
-        );
+    await _db.transaction(() async {
+      final t = detectedAt.millisecondsSinceEpoch ~/ 1000;
+      final dup = await _db.customSelect(
+        'SELECT 1 FROM detected_transactions '
+        'WHERE source_package IS ? AND amount = ? AND type = ? '
+        'AND deleted_at IS NULL AND detected_at BETWEEN ? AND ? LIMIT 1',
+        variables: [
+          Variable<String>(sourcePackage),
+          Variable.withReal(amount),
+          Variable.withString(type),
+          Variable.withInt(t - _dupWindowSeconds),
+          Variable.withInt(t + _dupWindowSeconds),
+        ],
+      ).getSingleOrNull();
+      if (dup != null) return;
+
+      await _db.into(_db.detectedTransactions).insert(
+            DetectedTransactionsCompanion.insert(
+              id: _uuid.v4(),
+              fingerprint: fingerprint,
+              amount: amount,
+              type: type,
+              walletId: Value(walletId),
+              sourcePackage: Value(sourcePackage),
+              merchant: Value(merchant),
+              detectedAt: Value(detectedAt),
+            ),
+            mode: InsertMode.insertOrIgnore,
+          );
+    });
   }
 
-  /// "Catat": jadikan transaksi sungguhan.
-  Future<void> record(String id) async {
-    final row = await (_db.select(_db.detectedTransactions)
-          ..where((d) => d.id.equals(id)))
-        .getSingleOrNull();
-    if (row == null || row.walletId == null) return;
-    final now = DateTime.now();
-    final txId = _uuid.v4();
-    await _db.transaction(() async {
+  /// "Catat": jadikan transaksi sungguhan. Hanya entri `pending` yang diproses
+  /// (cek dilakukan di dalam transaksi supaya tap ganda tidak menggandakan).
+  /// Mengembalikan true bila transaksi berhasil dibuat.
+  Future<bool> record(String id) async {
+    return _db.transaction(() async {
+      final row = await (_db.select(_db.detectedTransactions)
+            ..where((d) => d.id.equals(id)))
+          .getSingleOrNull();
+      if (row == null ||
+          row.walletId == null ||
+          row.status != 'pending' ||
+          row.deletedAt != null) {
+        return false;
+      }
+      final now = DateTime.now();
+      final txId = _uuid.v4();
       await _db.into(_db.transactions).insert(
             TransactionsCompanion.insert(
               id: txId,
@@ -123,6 +153,7 @@ class DetectedRepository {
         updatedAt: Value(now),
         syncStatus: const Value('dirty'),
       ));
+      return true;
     });
   }
 
@@ -181,21 +212,36 @@ class DetectedRepository {
     String parserKey = 'generic',
     bool isEnabled = true,
   }) async {
-    final existing = await (_db.select(_db.notificationSources)
+    final matches = await (_db.select(_db.notificationSources)
           ..where(
-              (s) => s.packageName.equals(packageName) & s.deletedAt.isNull()))
-        .getSingleOrNull();
-    await _db.into(_db.notificationSources).insertOnConflictUpdate(
-          NotificationSourcesCompanion(
-            id: Value(existing?.id ?? _uuid.v4()),
-            packageName: Value(packageName),
-            walletId: Value(walletId),
-            parserKey: Value(parserKey),
-            isEnabled: Value(isEnabled),
-            updatedAt: Value(DateTime.now()),
-            syncStatus: const Value('dirty'),
-          ),
-        );
+              (s) => s.packageName.equals(packageName) & s.deletedAt.isNull())
+          ..orderBy([(s) => OrderingTerm(expression: s.createdAt)]))
+        .get();
+    final keepId = matches.isNotEmpty ? matches.first.id : _uuid.v4();
+    await _db.transaction(() async {
+      final now = DateTime.now();
+      // Duplikat (mis. hasil sinkron dua perangkat) dibuang.
+      for (final m in matches.skip(1)) {
+        await (_db.update(_db.notificationSources)
+              ..where((s) => s.id.equals(m.id)))
+            .write(NotificationSourcesCompanion(
+          deletedAt: Value(now),
+          updatedAt: Value(now),
+          syncStatus: const Value('dirty'),
+        ));
+      }
+      await _db.into(_db.notificationSources).insertOnConflictUpdate(
+            NotificationSourcesCompanion(
+              id: Value(keepId),
+              packageName: Value(packageName),
+              walletId: Value(walletId),
+              parserKey: Value(parserKey),
+              isEnabled: Value(isEnabled),
+              updatedAt: Value(now),
+              syncStatus: const Value('dirty'),
+            ),
+          );
+    });
   }
 
   Future<void> setSourceEnabled(String id, bool enabled) async {

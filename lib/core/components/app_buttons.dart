@@ -17,76 +17,39 @@ class GlassBlur extends StatelessWidget {
   Widget build(BuildContext context) => child;
 }
 
-/// Cheap inset-glass edge: a short gradient strip instead of a blurred path.
-void _cheapInset(
-  Canvas canvas,
-  Rect rect,
-  Offset offset,
-  double blur,
-  Color color,
-) {
-  if (offset == Offset.zero) return; // ambient glow skipped (costly, subtle)
-  final h = (blur * 1.5).clamp(3.0, 8.0);
-  final top = offset.dy > 0;
-  final strip = top
-      ? Rect.fromLTWH(rect.left, rect.top, rect.width, h)
-      : Rect.fromLTWH(rect.left, rect.bottom - h, rect.width, h);
-  canvas.drawRect(
-    strip,
-    Paint()
-      ..shader = LinearGradient(
-        begin: top ? Alignment.topCenter : Alignment.bottomCenter,
-        end: top ? Alignment.bottomCenter : Alignment.topCenter,
-        colors: [color, color.withValues(alpha: 0)],
-      ).createShader(strip),
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Shared Inset Glass Painters (Emulates CSS `box-shadow: inset ...`)
-// Modeled 1:1 on the AppLuminousFab design system
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Circular Inset Glass Painter matching AppLuminousFab:
-/// - Inset top specular highlight: `inset 0 1.5px 3px rgba(255,255,255,.85)`
-/// - Inset bottom depth:           `inset 0 -2px 4px rgba(0,0,0,.20)`
-/// - Inset ambient glow:           `inset 0 0 12px rgba(255,255,255,.25)`
+/// Contour-following inset glass rim for circular surfaces.
 class CircleInsetGlassPainter extends CustomPainter {
   final Color highlightColor;
   final Color shadowColor;
   final Color glowColor;
 
   const CircleInsetGlassPainter({
-    this.highlightColor = const Color(0xD9FFFFFF), // .85 white
-    this.shadowColor = const Color(0x26000000),    // .15 black
-    this.glowColor = const Color(0x40FFFFFF),      // .25 white
+    this.highlightColor = const Color(0xD9FFFFFF),
+    this.shadowColor = const Color(0x26000000),
+    this.glowColor = const Color(0x40FFFFFF),
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final circle = Path()..addOval(rect);
+    final rect = (Offset.zero & size).deflate(1.0);
+    if (rect.isEmpty) return;
 
-    canvas.save();
-    canvas.clipPath(circle);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          highlightColor.withValues(alpha: 0.65),
+          glowColor.withValues(alpha: 0.15),
+          shadowColor.withValues(alpha: 0.12),
+        ],
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(rect);
 
-    // CSS paints the FIRST listed shadow on top, so paint in reverse order.
-    _inset(canvas, rect, circle, Offset.zero, 12, glowColor);
-    _inset(canvas, rect, circle, const Offset(0, -2), 4, shadowColor);
-    _inset(canvas, rect, circle, const Offset(0, 1.5), 3, highlightColor);
-
-    canvas.restore();
+    canvas.drawOval(rect, paint);
   }
-
-  void _inset(
-    Canvas canvas,
-    Rect rect,
-    Path path,
-    Offset offset,
-    double blur,
-    Color color,
-  ) =>
-      _cheapInset(canvas, rect, offset, blur, color);
 
   @override
   bool shouldRepaint(covariant CircleInsetGlassPainter oldDelegate) =>
@@ -95,8 +58,8 @@ class CircleInsetGlassPainter extends CustomPainter {
       glowColor != oldDelegate.glowColor;
 }
 
-/// RRect / Pill Inset Glass Painter matching AppLuminousFab:
-/// Works for pills (`Radius.circular(9999)`) and rounded rectangles.
+/// RRect / Pill Inset Glass Painter that follows the rounded corner contour
+/// without drawing flat horizontal shadow bars inside pills or dialogs.
 class RRectInsetGlassPainter extends CustomPainter {
   final Radius radius;
   final Color highlightColor;
@@ -105,36 +68,39 @@ class RRectInsetGlassPainter extends CustomPainter {
 
   const RRectInsetGlassPainter({
     required this.radius,
-    this.highlightColor = const Color(0xD9FFFFFF), // .85 white
-    this.shadowColor = const Color(0x26000000),    // .15 black
-    this.glowColor = const Color(0x40FFFFFF),      // .25 white
+    this.highlightColor = const Color(0xD9FFFFFF),
+    this.shadowColor = const Color(0x26000000),
+    this.glowColor = const Color(0x40FFFFFF),
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final rrect = RRect.fromRectAndRadius(rect, radius);
-    final path = Path()..addRRect(rrect);
+    final rect = (Offset.zero & size).deflate(1.0);
+    if (rect.isEmpty) return;
 
-    canvas.save();
-    canvas.clipPath(path);
+    final maxR = rect.shortestSide / 2;
+    final effectiveRadius = Radius.elliptical(
+      (radius.x - 1.0).clamp(0.0, maxR),
+      (radius.y - 1.0).clamp(0.0, maxR),
+    );
+    final rrect = RRect.fromRectAndRadius(rect, effectiveRadius);
 
-    _inset(canvas, rect, path, Offset.zero, 12, glowColor);
-    _inset(canvas, rect, path, const Offset(0, -2), 4, shadowColor);
-    _inset(canvas, rect, path, const Offset(0, 1.5), 3, highlightColor);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          highlightColor.withValues(alpha: 0.65),
+          glowColor.withValues(alpha: 0.15),
+          shadowColor.withValues(alpha: 0.12),
+        ],
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(rect);
 
-    canvas.restore();
+    canvas.drawRRect(rrect, paint);
   }
-
-  void _inset(
-    Canvas canvas,
-    Rect rect,
-    Path path,
-    Offset offset,
-    double blur,
-    Color color,
-  ) =>
-      _cheapInset(canvas, rect, offset, blur, color);
 
   @override
   bool shouldRepaint(covariant RRectInsetGlassPainter oldDelegate) =>
@@ -574,7 +540,6 @@ class _TypeOptionButtonState extends State<_TypeOptionButton> {
           child: GlassBlur(
             filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 9),
               decoration: BoxDecoration(
                 gradient: isSelected ? widget.gradient : null,
                 color: isSelected ? null : Colors.transparent,
@@ -594,28 +559,40 @@ class _TypeOptionButtonState extends State<_TypeOptionButton> {
                         shadowColor: Color(0x33000000),
                         glowColor: Color(0x40FFFFFF),
                       ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 22,
+                          vertical: 9,
+                        ),
+                        child: Text(
+                          widget.label,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            shadows: [
+                              Shadow(
+                                color: Color(0x33000000),
+                                blurRadius: 3,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                  : Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 22,
+                        vertical: 9,
+                      ),
                       child: Text(
                         widget.label,
                         style: const TextStyle(
                           fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                          shadows: [
-                            Shadow(
-                              color: Color(0x33000000),
-                              blurRadius: 3,
-                              offset: Offset(0, 1),
-                            ),
-                          ],
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.inkSecondary,
                         ),
-                      ),
-                    )
-                  : Text(
-                      widget.label,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.inkSecondary,
                       ),
                     ),
             ),

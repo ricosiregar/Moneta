@@ -103,13 +103,17 @@ class NotificationCaptureService {
     );
     if (parsed == null) return;
 
-    final postedAt = e.timestamp > 0
-        ? DateTime.fromMillisecondsSinceEpoch(e.timestamp)
-        : DateTime.now();
+    // Event live bisa datang tanpa timestamp (0). Pakai waktu sekarang agar
+    // fingerprint tidak bertabrakan antar notifikasi berbeda; duplikat
+    // sungguhan disaring oleh jendela waktu di DetectedRepository.addDetected.
+    final ts = e.timestamp > 0
+        ? e.timestamp
+        : DateTime.now().millisecondsSinceEpoch;
+    final postedAt = DateTime.fromMillisecondsSinceEpoch(ts);
 
     await _repo.addDetected(
       // Stabil untuk notifikasi yang sama (tidak ganda saat dibaca ulang).
-      fingerprint: '$pkg|${e.timestamp}|${e.id}|${parsed.amount}|${parsed.type}',
+      fingerprint: '$pkg|$ts|${e.id}|${parsed.amount}|${parsed.type}',
       walletId: source.walletId,
       sourcePackage: pkg,
       amount: parsed.amount,

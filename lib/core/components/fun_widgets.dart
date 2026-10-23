@@ -83,7 +83,7 @@ class FunCard extends StatelessWidget {
     this.padding = const EdgeInsets.all(20),
     this.margin,
     this.onTap,
-    this.clipBehavior = Clip.none,
+    this.clipBehavior = Clip.antiAlias,
   });
 
   @override
@@ -91,6 +91,8 @@ class FunCard extends StatelessWidget {
     final glass = GlassScope.of(context);
     final radius = BorderRadius.circular(24);
     final r = const Radius.circular(24);
+    final effectiveClip =
+        clipBehavior == Clip.none ? Clip.antiAlias : clipBehavior;
 
     return Container(
       width: double.infinity,
@@ -123,12 +125,15 @@ class FunCard extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           borderRadius: radius,
-          clipBehavior: clipBehavior,
-          child: InkWell(
-            borderRadius: radius,
-            onTap: onTap,
-            child: Padding(padding: padding, child: child),
-          ),
+          clipBehavior: effectiveClip,
+          child: onTap != null
+              ? InkWell(
+                  borderRadius: radius,
+                  customBorder: RoundedRectangleBorder(borderRadius: radius),
+                  onTap: onTap,
+                  child: Padding(padding: padding, child: child),
+                )
+              : Padding(padding: padding, child: child),
         ),
       ),
     );
@@ -464,7 +469,7 @@ class FunPill extends StatelessWidget {
           ]
         : null;
     final row = Row(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         if (icon != null) ...[
@@ -488,7 +493,6 @@ class FunPill extends StatelessWidget {
     );
     final child = Container(
       height: 36,
-      alignment: Alignment.center,
       decoration: selected
           ? auroraActiveDecoration()
           : BoxDecoration(
@@ -515,7 +519,7 @@ class FunPill extends StatelessWidget {
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Center(child: row),
+            child: row,
           ),
         ),
       ),
@@ -557,34 +561,37 @@ class FunTabs extends StatelessWidget {
               behavior: HitTestBehavior.opaque,
               child: Container(
                 height: 32,
-                alignment: Alignment.center,
                 decoration: i == selected ? auroraActiveDecoration() : null,
-                child: CustomPaint(
-                  painter: i == selected
-                      ? const RRectInsetGlassPainter(
-                          radius: Radius.circular(9999),
-                        )
-                      : null,
-                  child: Container(
-                    alignment: Alignment.center,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    child: Text(
-                      labels[i],
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: i == selected
-                            ? Colors.white
-                            : AppColors.inkSecondary,
-                        shadows: i == selected
-                            ? const [
-                                Shadow(
-                                  color: Color(0x33000000),
-                                  blurRadius: 3,
-                                  offset: Offset(0, 1),
-                                ),
-                              ]
-                            : null,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: CustomPaint(
+                    painter: i == selected
+                        ? const RRectInsetGlassPainter(
+                            radius: Radius.circular(9999),
+                          )
+                        : null,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      child: Center(
+                        child: Text(
+                          labels[i],
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: i == selected
+                                ? Colors.white
+                                : AppColors.inkSecondary,
+                            shadows: i == selected
+                                ? const [
+                                    Shadow(
+                                      color: Color(0x33000000),
+                                      blurRadius: 3,
+                                      offset: Offset(0, 1),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -733,8 +740,9 @@ class DonutChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorsSig = colors?.map((c) => c.toARGB32()).join(',') ?? '';
     return TweenAnimationBuilder<double>(
-      key: ValueKey('${values.toString()}_${colors?.length}_$selectedIndex'),
+      key: ValueKey('${values.toString()}_${colorsSig}_$selectedIndex'),
       tween: Tween(begin: 0.0, end: 1.0),
       duration: const Duration(milliseconds: 650),
       curve: Curves.easeOutCubic,

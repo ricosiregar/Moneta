@@ -42,15 +42,18 @@ class AppCard extends StatelessWidget {
     );
 
     if (onTap != null) {
+      final r = BorderRadius.circular(borderRadius);
       return Container(
         margin: margin,
         decoration: decoration,
         child: Material(
           color: Colors.transparent,
-          borderRadius: BorderRadius.circular(borderRadius),
+          borderRadius: r,
+          clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(borderRadius),
+            borderRadius: r,
+            customBorder: RoundedRectangleBorder(borderRadius: r),
             child: Padding(
               padding: padding ?? EdgeInsets.zero,
               child: child,
@@ -108,7 +111,6 @@ class AppGlassCard extends StatelessWidget {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
           child: Container(
-            padding: padding,
             decoration: BoxDecoration(
               gradient: gradient ??
                   (tintColor != null
@@ -131,13 +133,22 @@ class AppGlassCard extends StatelessWidget {
               ),
               child: Material(
                 color: Colors.transparent,
+                borderRadius: r,
+                clipBehavior: Clip.antiAlias,
                 child: onTap != null
                     ? InkWell(
                         onTap: onTap,
                         borderRadius: r,
-                        child: child,
+                        customBorder: RoundedRectangleBorder(borderRadius: r),
+                        child: Padding(
+                          padding: padding ?? EdgeInsets.zero,
+                          child: child,
+                        ),
                       )
-                    : child,
+                    : Padding(
+                        padding: padding ?? EdgeInsets.zero,
+                        child: child,
+                      ),
               ),
             ),
           ),
