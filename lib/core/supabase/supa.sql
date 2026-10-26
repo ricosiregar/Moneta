@@ -19,6 +19,7 @@ CREATE TABLE public.categories (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   deleted_at timestamp with time zone,
+  synced_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT categories_pkey PRIMARY KEY (id),
   CONSTRAINT categories_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
@@ -39,6 +40,7 @@ CREATE TABLE public.wallets (
   is_archived boolean NOT NULL DEFAULT false,
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   deleted_at timestamp with time zone,
+  synced_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT wallets_pkey PRIMARY KEY (id),
   CONSTRAINT wallets_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT wallets_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.wallets(id)
@@ -59,6 +61,7 @@ CREATE TABLE public.transactions (
   detected_id uuid,
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   deleted_at timestamp with time zone,
+  synced_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT transactions_pkey PRIMARY KEY (id),
   CONSTRAINT transactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT transactions_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories(id),
@@ -75,6 +78,7 @@ CREATE TABLE public.budget_limits (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   deleted_at timestamp with time zone,
+  synced_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT budget_limits_pkey PRIMARY KEY (id),
   CONSTRAINT budget_limits_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT budget_limits_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.categories(id)
@@ -91,6 +95,7 @@ CREATE TABLE public.saving_jars (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   deleted_at timestamp with time zone,
+  synced_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT saving_jars_pkey PRIMARY KEY (id),
   CONSTRAINT saving_jars_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
@@ -103,6 +108,7 @@ CREATE TABLE public.user_settings (
   last_synced_at timestamp with time zone,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  synced_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT user_settings_pkey PRIMARY KEY (user_id),
   CONSTRAINT user_settings_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT user_settings_default_expense_wallet_id_fkey FOREIGN KEY (default_expense_wallet_id) REFERENCES public.wallets(id),
@@ -120,6 +126,7 @@ CREATE TABLE public.wallet_allocations (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   deleted_at timestamp with time zone,
+  synced_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT wallet_allocations_pkey PRIMARY KEY (id),
   CONSTRAINT wallet_allocations_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT wallet_allocations_source_wallet_id_fkey FOREIGN KEY (source_wallet_id) REFERENCES public.wallets(id),
@@ -138,6 +145,7 @@ CREATE TABLE public.transfers (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   deleted_at timestamp with time zone,
+  synced_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT transfers_pkey PRIMARY KEY (id),
   CONSTRAINT transfers_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT transfers_from_wallet_id_fkey FOREIGN KEY (from_wallet_id) REFERENCES public.wallets(id),
@@ -154,6 +162,7 @@ CREATE TABLE public.notification_sources (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   deleted_at timestamp with time zone,
+  synced_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT notification_sources_pkey PRIMARY KEY (id),
   CONSTRAINT notification_sources_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.wallets(id),
   CONSTRAINT notification_sources_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
@@ -173,6 +182,7 @@ CREATE TABLE public.detected_transactions (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   deleted_at timestamp with time zone,
+  synced_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT detected_transactions_pkey PRIMARY KEY (id),
   CONSTRAINT detected_transactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT detected_transactions_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.wallets(id),
@@ -190,6 +200,7 @@ CREATE TABLE public.saving_jar_entries (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   deleted_at timestamp with time zone,
+  synced_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT saving_jar_entries_pkey PRIMARY KEY (id),
   CONSTRAINT saving_jar_entries_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT saving_jar_entries_jar_id_fkey FOREIGN KEY (jar_id) REFERENCES public.saving_jars(id),
@@ -213,6 +224,7 @@ CREATE TABLE public.auto_schedules (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   deleted_at timestamp with time zone,
+  synced_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT auto_schedules_pkey PRIMARY KEY (id),
   CONSTRAINT auto_schedules_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT auto_schedules_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.wallets(id),

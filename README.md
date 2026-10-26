@@ -1,8 +1,8 @@
 <div align="center">
 
-# 💰 Moneta — Personal Finance Tracker
+# 💰 Moneta — Personal Finance
 
-**Aplikasi Mobile Pengelola Keuangan Pribadi *Offline-First* Berbasis Flutter dengan Arsitektur Clean Architecture, Sinkronisasi Cloud Supabase, dan Deteksi Transaksi Otomatis**
+**Aplikasi Mobile Pengelola Keuangan Pribadi _Offline-First_ Berbasis Flutter dengan Arsitektur Clean Architecture, Sinkronisasi Cloud Supabase, dan Deteksi Transaksi Otomatis**
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-3.9.2-0175C2?logo=dart&logoColor=white)](https://dart.dev)
@@ -32,23 +32,23 @@
 
 ## 🏢 Tentang Proyek
 
-**Moneta** adalah aplikasi *personal finance tracker* modern berbasis **Flutter** dengan antarmuka **Pastel Aurora & Liquid Glassmorphism**. Aplikasi ini dirancang dengan pendekatan **Offline-First** menggunakan database lokal **SQLite (Drift)** yang terintegrasi dengan **Supabase** untuk autentikasi dan sinkronisasi data dua arah (*pull & push*) antar perangkat.
+**Moneta** adalah aplikasi _personal finance tracker_ modern berbasis **Flutter** dengan antarmuka **Pastel Aurora & Liquid Glassmorphism**. Aplikasi ini dirancang dengan pendekatan **Offline-First** menggunakan database lokal **SQLite (Drift)** yang terintegrasi dengan **Supabase** untuk autentikasi dan sinkronisasi data dua arah (_pull & push_) antar perangkat.
 
-Seluruh pencatatan transaksi, perhitungan saldo dompet berbasis *ledger*, perencanaan anggaran (*budgeting*), celengan digital (*saving jars*), hingga jadwal otomatis berjalan instan di perangkat tanpa bergantung pada koneksi internet, lalu disinkronkan secara aman ke cloud saat online.
+Seluruh pencatatan transaksi, perhitungan saldo dompet berbasis _ledger_, perencanaan anggaran (_budgeting_), celengan digital (_saving jars_), hingga jadwal otomatis berjalan instan di perangkat tanpa bergantung pada koneksi internet, lalu disinkronkan secara aman ke cloud saat online.
 
 ---
 
 ## ✨ Fitur Utama
 
-| Fitur | Deskripsi |
-| --- | --- |
+| Fitur                                           | Deskripsi                                                                                                                                                                                                                |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 👛 **Manajemen Dompet & Hierarki Parent–Child** | Kelola dompet Tunai, Bank, dan E-Wallet lengkap dengan struktur **Dompet Induk (Parent)** & **Dompet Anak (Child)** serta preset ekosistem bank digital (`Bank Jago → GoPay`, `SeaBank → ShopeePay`, `Superbank → OVO`). |
-| 💸 **Pencatatan Transaksi & Pindah Uang** | Catat pemasukan, pengeluaran, dan transfer antar dompet (termasuk biaya admin) dengan perhitungan saldo berbasis *ledger* secara *real-time*. |
-| 🔔 **Deteksi Otomatis Notifikasi Bank (Beta)** | Tangkap notifikasi transaksi masuk/keluar secara otomatis di latar belakang Android untuk **Bank Jago**, **SeaBank**, dan **Superbank** dengan *auto-assign* ke dompet terkait (beserta pilihan dompet Induk/Anak). |
-| 📊 **Budgeting Plan & Auto-Schedule** | Tetapkan batas anggaran bulanan per kategori dan atur jadwal transaksi/alokasi otomatis bulanan (*Auto-Transfer* & *Auto-Expense*). |
-| 🐷 **Celengan Digital (Saving Jars)** | Buat target tabungan impian lengkap dengan fitur setor dan tarik dana yang terhubung langsung ke saldo dompet. |
-| 📈 **Analitik & Riwayat Aktivitas** | Pantau grafik arus kas, proporsi pengeluaran per kategori, serta filter aktivitas berdasarkan rentang tanggal, dompet, dan kategori. |
-| ☁️ **Two-Way Cloud Sync & Backup Mandiri** | Sinkronisasi otomatis saat login dan sinkronisasi dua arah (`Drift ↔ Supabase`), dilengkapi fitur Ekspor/Impor cadangan lokal (`.json` & `.csv`). |
+| 💸 **Pencatatan Transaksi & Pindah Uang**       | Catat pemasukan, pengeluaran, dan transfer antar dompet (termasuk biaya admin) dengan perhitungan saldo berbasis _ledger_ secara _real-time_.                                                                            |
+| 🔔 **Deteksi Otomatis Notifikasi Bank (Beta)**  | Tangkap notifikasi transaksi masuk/keluar secara otomatis di latar belakang Android untuk **Bank Jago**, **SeaBank**, dan **Superbank** dengan _auto-assign_ ke dompet terkait (beserta pilihan dompet Induk/Anak).      |
+| 📊 **Budgeting Plan & Auto-Schedule**           | Tetapkan batas anggaran bulanan per kategori dan atur jadwal transaksi/alokasi otomatis bulanan (_Auto-Transfer_ & _Auto-Expense_).                                                                                      |
+| 🐷 **Celengan Digital (Saving Jars)**           | Buat target tabungan impian lengkap dengan fitur setor dan tarik dana yang terhubung langsung ke saldo dompet.                                                                                                           |
+| 📈 **Analitik & Riwayat Aktivitas**             | Pantau grafik arus kas, proporsi pengeluaran per kategori, serta filter aktivitas berdasarkan rentang tanggal, dompet, dan kategori.                                                                                     |
+| ☁️ **Two-Way Cloud Sync & Backup Mandiri**      | Sinkronisasi otomatis saat login dan sinkronisasi dua arah (`Drift ↔ Supabase`), dilengkapi fitur Ekspor/Impor cadangan lokal (`.json` & `.csv`).                                                                        |
 
 ---
 
@@ -91,9 +91,10 @@ Moneta menerapkan **Clean Architecture** dengan pendekatan **Feature-First Modul
 ```
 
 ### Prinsip Teknis Utama
+
 - **State Management (`flutter_bloc`)**: Menggunakan `Bloc` untuk alur berbasis event kompleks (seperti `AuthBloc`) dan `Cubit` reaktif berbasis stream database untuk fitur-fitur domain (`HomeCubit`, `WalletsCubit`, `TransactionsCubit`, `BudgetsCubit`, `JarsCubit`, `DetectedInboxCubit`, dll.).
 - **Immutable Entities & Models (`freezed`)**: Seluruh entitas domain dan model data menggunakan code generation `freezed` untuk menjamin imutabilitas dan keamanan tipe data.
-- **Functional Error Handling (`dartz`)**: Kontrak repository dan use case mengembalikan `Either<Failure, T>` sehingga error tertangani secara eksplisit tanpa *unhandled exception* di lapisan UI.
+- **Functional Error Handling (`dartz`)**: Kontrak repository dan use case mengembalikan `Either<Failure, T>` sehingga error tertangani secara eksplisit tanpa _unhandled exception_ di lapisan UI.
 - **Dependency Injection (`get_it`)**: Seluruh repository, use case, service, dan BLoC/Cubit diregistrasikan terpusat di `lib/core/di/injection.dart`.
 
 ---
@@ -101,12 +102,12 @@ Moneta menerapkan **Clean Architecture** dengan pendekatan **Feature-First Modul
 ## 🔄 Mekanisme Offline-First & Cloud Sync
 
 1. **Database Lokal sebagai Single Source of Truth UI**:
-   - Seluruh layar membaca data dari SQLite lokal (**Drift**) melalui *reactive stream* (`.watch()`).
-   - Setiap penambahan, perubahan, atau penghapusan (*soft-delete* via `deleted_at`) langsung disimpan ke SQLite dengan status `sync_status = 'dirty'`.
+   - Seluruh layar membaca data dari SQLite lokal (**Drift**) melalui _reactive stream_ (`.watch()`).
+   - Setiap penambahan, perubahan, atau penghapusan (_soft-delete_ via `deleted_at`) langsung disimpan ke SQLite dengan status `sync_status = 'dirty'`.
 2. **Sinkronisasi Dua Arah (`SyncService`)**:
-   - **Pull**: Menarik baris terbaru dari Supabase berdasarkan *server cursor* (`synced_at`), tanpa menimpa perubahan lokal yang masih berstatus `dirty`.
-   - **Push**: Mengirim seluruh baris berstatus `dirty` secara *batch upsert* ke Supabase sesuai urutan ketergantungan *foreign key*, lalu menandainya menjadi `synced`.
-   - **Auto-Restore saat Login / Reinstall**: Saat pengguna login di perangkat baru atau setelah menginstal ulang aplikasi, `SyncService` otomatis melakukan *full pull* dari Supabase sebelum menginisialisasi kategori bawaan.
+   - **Pull**: Menarik baris terbaru dari Supabase berdasarkan _server cursor_ (`synced_at`), tanpa menimpa perubahan lokal yang masih berstatus `dirty`.
+   - **Push**: Mengirim seluruh baris berstatus `dirty` secara _batch upsert_ ke Supabase sesuai urutan ketergantungan _foreign key_, lalu menandainya menjadi `synced`.
+   - **Auto-Restore saat Login / Reinstall**: Saat pengguna login di perangkat baru atau setelah menginstal ulang aplikasi, `SyncService` otomatis melakukan _full pull_ dari Supabase sebelum menginisialisasi kategori bawaan.
 
 ---
 
@@ -156,19 +157,19 @@ personal_finance/
 
 ## 🛠️ Tech Stack
 
-| Kategori | Package | Versi | Kegunaan |
-| --- | --- | --- | --- |
-| **Framework & SDK** | `flutter` / `dart` | `^3.9.2` | UI Framework & Bahasa Pemrograman |
-| **State Management** | `flutter_bloc` | `^9.1.1` | BLoC & Cubit Reaktif |
-| **Code Generation** | `freezed` + `json_serializable` | `^3.2.5` / `^6.14.1` | Immutable Entities, Models & State |
-| **Local Database** | `drift` + `sqlite3_flutter_libs` | `^2.31.0` | Offline-first SQLite ORM & Reactive Queries |
-| **Cloud Backend** | `supabase_flutter` | `^2.17.2` | Autentikasi & Sinkronisasi Database Cloud |
-| **Dependency Injection** | `get_it` + `injectable` | `^9.2.1` / `^3.0.0` | Service Locator & DI |
-| **Routing** | `go_router` | `^14.8.0` | Navigasi Deklaratif & Auth Guard |
-| **UI & Visual** | `liquid_glass_widgets`, `fl_chart` | `^1.9.0` / `^1.2.0` | Efek Liquid Glass & Grafik Keuangan |
-| **Auto-Deteksi Bank** | `notification_listener_service` | `^1.0.0` | Listener Notifikasi Bank di Android |
-| **Backup & Berkas** | `csv`, `share_plus`, `file_picker` | `^6.0.0` / `^12.0.2` / `^11.0.3` | Ekspor & Impor Data Transaksi |
-| **Utilitas** | `dartz`, `intl`, `uuid`, `flutter_dotenv` | — | Functional Error Handling, Lokalisasi `id_ID` & Konfigurasi |
+| Kategori                 | Package                                   | Versi                            | Kegunaan                                                    |
+| ------------------------ | ----------------------------------------- | -------------------------------- | ----------------------------------------------------------- |
+| **Framework & SDK**      | `flutter` / `dart`                        | `^3.9.2`                         | UI Framework & Bahasa Pemrograman                           |
+| **State Management**     | `flutter_bloc`                            | `^9.1.1`                         | BLoC & Cubit Reaktif                                        |
+| **Code Generation**      | `freezed` + `json_serializable`           | `^3.2.5` / `^6.14.1`             | Immutable Entities, Models & State                          |
+| **Local Database**       | `drift` + `sqlite3_flutter_libs`          | `^2.31.0`                        | Offline-first SQLite ORM & Reactive Queries                 |
+| **Cloud Backend**        | `supabase_flutter`                        | `^2.17.2`                        | Autentikasi & Sinkronisasi Database Cloud                   |
+| **Dependency Injection** | `get_it` + `injectable`                   | `^9.2.1` / `^3.0.0`              | Service Locator & DI                                        |
+| **Routing**              | `go_router`                               | `^14.8.0`                        | Navigasi Deklaratif & Auth Guard                            |
+| **UI & Visual**          | `liquid_glass_widgets`, `fl_chart`        | `^1.9.0` / `^1.2.0`              | Efek Liquid Glass & Grafik Keuangan                         |
+| **Auto-Deteksi Bank**    | `notification_listener_service`           | `^1.0.0`                         | Listener Notifikasi Bank di Android                         |
+| **Backup & Berkas**      | `csv`, `share_plus`, `file_picker`        | `^6.0.0` / `^12.0.2` / `^11.0.3` | Ekspor & Impor Data Transaksi                               |
+| **Utilitas**             | `dartz`, `intl`, `uuid`, `flutter_dotenv` | —                                | Functional Error Handling, Lokalisasi `id_ID` & Konfigurasi |
 
 ---
 
@@ -186,9 +187,14 @@ dart run build_runner watch --delete-conflicting-outputs
 
 ---
 
-## ⚙️ Konfigurasi Environment
+## ⚙️ Konfigurasi Environment (Hybrid Mode)
 
-Buat file **`.env`** di direktori root proyek dengan konfigurasi Supabase Anda:
+Aplikasi mendukung **Hybrid Environment Loading**:
+
+1. **Mode Debugging (`fvm flutter run`)**: Otomatis membaca file **`.env`** di dalam root proyek.
+2. **Mode Build Release (`.apk` / `.aab`)**: Mendukung injeksi _compile-time_ menggunakan `--dart-define-from-file=.env` atau `--dart-define`.
+
+Contoh isi file **`.env`**:
 
 ```env
 SUPABASE_URL=https://your-supabase-project.supabase.co
@@ -197,35 +203,49 @@ SUPABASE_ANON_KEY=your-supabase-anon-key
 
 ---
 
-## 🚀 Cara Menjalankan Aplikasi
+## 🚀 Cara Menjalankan & Build Aplikasi
 
 1. **Install Dependencies**:
+
    ```bash
-   flutter pub get
+   fvm flutter pub get
    ```
 
 2. **Jalankan Code Generation (bila diperlukan)**:
+
    ```bash
-   dart run build_runner build --delete-conflicting-outputs
+   fvm dart run build_runner build --delete-conflicting-outputs
    ```
 
-3. **Jalankan Aplikasi**:
+3. **Jalankan saat Debugging (Otomatis baca `.env` lokal)**:
+
    ```bash
-   flutter run
+   fvm flutter run
+   ```
+
+4. **Build Release `.apk` / `.aab` (Inject Environment)**:
+
+   ```bash
+   # Build APK Release dengan inject dari file .env
+   fvm flutter build apk --release --dart-define-from-file=.env
+
+   # Build App Bundle (.aab) Release dengan inject dari file .env
+   fvm flutter build appbundle --release --dart-define-from-file=.env
    ```
 
 ---
 
 ## 🔁 Ringkasan Command Penting
 
-| Tujuan | Perintah Command Line |
-| --- | --- |
-| Install Dependencies | `flutter pub get` |
-| Generate Kode (`Freezed` / `Drift`) | `dart run build_runner build --delete-conflicting-outputs` |
-| Menjalankan Aplikasi (Debug) | `flutter run` |
-| Analisis Kode & Linting | `flutter analyze` |
-| Menjalankan Unit Test | `flutter test` |
-| Build APK Release | `flutter build apk --release` |
+| Tujuan                              | Perintah Command Line                                                |
+| ----------------------------------- | -------------------------------------------------------------------- |
+| Install Dependencies                | `fvm flutter pub get`                                                |
+| Generate Kode (`Freezed` / `Drift`) | `fvm dart run build_runner build --delete-conflicting-outputs`       |
+| Menjalankan Aplikasi (Debug)        | `fvm flutter run`                                                    |
+| Analisis Kode & Linting             | `fvm flutter analyze`                                                |
+| Menjalankan Unit Test               | `fvm flutter test`                                                   |
+| Build APK Release (Inject Env)      | `fvm flutter build apk --release --dart-define-from-file=.env`       |
+| Build AAB Release (Inject Env)      | `fvm flutter build appbundle --release --dart-define-from-file=.env` |
 
 ---
 

@@ -48,17 +48,40 @@ Future<void> _bootstrap() async {
 
   // Supabase hanya boleh diinisialisasi sekali (aman untuk retry).
   if (!_supabaseReady) {
-    await dotenv.load(fileName: ".env");
+    // 1. Prioritaskan variabel hasil inject compile-time (--dart-define / --dart-define-from-file)
+    //    untuk build release (.apk / .aab).
+    const injectedUrl = String.fromEnvironment('SUPABASE_URL');
+    const injectedPublishableKey = String.fromEnvironment(
+      'SUPABASE_PUBLISHABLE_KEY',
+    );
+    const injectedAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
-    final supabaseUrl = dotenv.env['SUPABASE_URL'];
-    final publishableKey =
-        dotenv.env['SUPABASE_PUBLISHABLE_KEY'] ??
-        dotenv.env['SUPABASE_ANON_KEY'];
+    String supabaseUrl = injectedUrl.trim();
+    String publishableKey = (injectedPublishableKey.isNotEmpty
+            ? injectedPublishableKey
+            : injectedAnonKey)
+        .trim();
 
-    if (supabaseUrl == null ||
-        supabaseUrl.isEmpty ||
-        publishableKey == null ||
-        publishableKey.isEmpty) {
+    // 2. Fallback ke file .env lokal saat debugging (mis. `fvm flutter run`)
+    //    apabila variabel belum di-inject lewat --dart-define.
+    if (supabaseUrl.isEmpty || publishableKey.isEmpty) {
+      try {
+        await dotenv.load(fileName: ".env");
+        if (supabaseUrl.isEmpty) {
+          supabaseUrl = (dotenv.maybeGet('SUPABASE_URL') ?? '').trim();
+        }
+        if (publishableKey.isEmpty) {
+          publishableKey = (dotenv.maybeGet('SUPABASE_PUBLISHABLE_KEY') ??
+                  dotenv.maybeGet('SUPABASE_ANON_KEY') ??
+                  '')
+              .trim();
+        }
+      } catch (e) {
+        debugPrint('Info: File .env lokal tidak dimuat ($e)');
+      }
+    }
+
+    if (supabaseUrl.isEmpty || publishableKey.isEmpty) {
       throw StateError('Konfigurasi server (.env) belum lengkap.');
     }
     await Supabase.initialize(
