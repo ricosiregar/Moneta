@@ -194,11 +194,17 @@ Aplikasi mendukung **Hybrid Environment Loading**:
 1. **Mode Debugging (`fvm flutter run`)**: Otomatis membaca file **`.env`** di dalam root proyek.
 2. **Mode Build Release (`.apk` / `.aab`)**: Mendukung injeksi _compile-time_ menggunakan `--dart-define-from-file=.env` atau `--dart-define`.
 
-Contoh isi file **`.env`**:
+Contoh penyiapan file **`.env`** (salin dari template `.env.example`):
+
+```bash
+cp .env.example .env
+```
+
+Isi file **`.env`**:
 
 ```env
-SUPABASE_URL=https://your-supabase-project.supabase.co
-SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_URL=https://your-project-id.supabase.co
+SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-or-anon-key
 ```
 
 ---
