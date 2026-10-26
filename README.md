@@ -223,29 +223,34 @@ SUPABASE_ANON_KEY=your-supabase-anon-key
    fvm flutter run
    ```
 
-4. **Build Release `.apk` / `.aab` (Inject Environment)**:
+4. **Build Release `.apk` / `.aab` (Inject Environment + Obfuscation)**:
+
+   Gunakan `--dart-define-from-file=.env` untuk menginjeksi kredensial ke dalam binary (`libapp.so`) dan `--obfuscate` untuk mengacak simbol kode agar lebih aman dari *reverse engineering*:
 
    ```bash
-   # Build APK Release dengan inject dari file .env
-   fvm flutter build apk --release --dart-define-from-file=.env
+   # Build APK Release (Inject Env + Code Obfuscation)
+   fvm flutter build apk --release --obfuscate --split-debug-info=build/debug-info --dart-define-from-file=.env
 
-   # Build App Bundle (.aab) Release dengan inject dari file .env
-   fvm flutter build appbundle --release --dart-define-from-file=.env
+   # Build App Bundle (.aab) Release (Inject Env + Code Obfuscation)
+   fvm flutter build appbundle --release --obfuscate --split-debug-info=build/debug-info --dart-define-from-file=.env
    ```
+
+   > **💡 Tips Keamanan Saat Rilis Produksi:**
+   > Sebelum menjalankan perintah *build release* di atas, kamu bisa memberi komentar (`# - .env`) pada bagian `assets:` di `pubspec.yaml` agar file `.env` mentah tidak ikut disalin ke dalam folder `flutter_assets` di dalam `.apk`/`.aab`.
 
 ---
 
 ## 🔁 Ringkasan Command Penting
 
-| Tujuan                              | Perintah Command Line                                                |
-| ----------------------------------- | -------------------------------------------------------------------- |
-| Install Dependencies                | `fvm flutter pub get`                                                |
-| Generate Kode (`Freezed` / `Drift`) | `fvm dart run build_runner build --delete-conflicting-outputs`       |
-| Menjalankan Aplikasi (Debug)        | `fvm flutter run`                                                    |
-| Analisis Kode & Linting             | `fvm flutter analyze`                                                |
-| Menjalankan Unit Test               | `fvm flutter test`                                                   |
-| Build APK Release (Inject Env)      | `fvm flutter build apk --release --dart-define-from-file=.env`       |
-| Build AAB Release (Inject Env)      | `fvm flutter build appbundle --release --dart-define-from-file=.env` |
+| Tujuan                              | Perintah Command Line                                                                                              |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Install Dependencies                | `fvm flutter pub get`                                                                                              |
+| Generate Kode (`Freezed` / `Drift`) | `fvm dart run build_runner build --delete-conflicting-outputs`                                                     |
+| Menjalankan Aplikasi (Debug)        | `fvm flutter run`                                                                                                  |
+| Analisis Kode & Linting             | `fvm flutter analyze`                                                                                              |
+| Menjalankan Unit Test               | `fvm flutter test`                                                                                                 |
+| Build APK Release (Aman)            | `fvm flutter build apk --release --obfuscate --split-debug-info=build/debug-info --dart-define-from-file=.env`       |
+| Build AAB Release (Aman)            | `fvm flutter build appbundle --release --obfuscate --split-debug-info=build/debug-info --dart-define-from-file=.env` |
 
 ---
 
