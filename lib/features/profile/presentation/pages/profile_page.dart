@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
-import 'package:Moneta/core/network/error/failures.dart';
+import 'package:moneta/core/network/error/failures.dart';
 import 'package:dartz/dartz.dart' hide State;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -80,12 +80,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }) async {
     final r = await action();
     if (!mounted) return;
-    r.fold(
-      (f) => AppToast.showError(context, f.message),
-      (_) {
-        if (success != null) AppToast.showSuccess(context, success);
-      },
-    );
+    r.fold((f) => AppToast.showError(context, f.message), (_) {
+      if (success != null) AppToast.showSuccess(context, success);
+    });
   }
 
   Future<void> _importJson() async {
@@ -134,7 +131,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ? fullName
               : (email.contains('@')
                     ? email.split('@').first
-                    : 'Pengguna MonTrack');
+                    : 'Pengguna Moneta');
           final parts = name.trim().split(RegExp(r'\s+'));
           final String initial =
               (parts.length > 1
@@ -243,8 +240,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Icons.file_download_outlined,
                       'Ekspor JSON',
                       'Simpan semua data',
-                      onTap: () =>
-                          _run(_cubit.exportJson),
+                      onTap: () => _run(_cubit.exportJson),
                     ),
                     _Row(
                       Icons.file_upload_outlined,
@@ -256,8 +252,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Icons.table_chart_outlined,
                       'Ekspor CSV',
                       'Buka di spreadsheet',
-                      onTap: () =>
-                          _run(_cubit.exportCsv),
+                      onTap: () => _run(_cubit.exportCsv),
                     ),
                     _Row(
                       Icons.delete_outline_rounded,

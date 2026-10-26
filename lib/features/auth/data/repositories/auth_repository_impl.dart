@@ -1,6 +1,6 @@
-import 'package:Moneta/core/network/error/exceptions.dart';
-import 'package:Moneta/core/network/error/failures.dart';
-import 'package:Moneta/core/utils/app_error_formatter.dart';
+import 'package:moneta/core/network/error/exceptions.dart';
+import 'package:moneta/core/network/error/failures.dart';
+import 'package:moneta/core/utils/app_error_formatter.dart';
 import 'package:dartz/dartz.dart';
 
 import '../../domain/entities/auth_signup_result.dart';

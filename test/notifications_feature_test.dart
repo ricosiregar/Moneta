@@ -1,15 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:Moneta/core/database/app_database.dart';
-import 'package:Moneta/core/database/detected_repository.dart';
-import 'package:Moneta/core/database/wallet_repository.dart';
-import 'package:Moneta/core/utils/usecase.dart';
-import 'package:Moneta/features/notifications/data/datasources/notification_local_datasource.dart';
-import 'package:Moneta/features/notifications/data/repositories/notification_repository_impl.dart';
-import 'package:Moneta/features/notifications/domain/entities/detected_transaction_entity.dart';
-import 'package:Moneta/features/notifications/domain/usecases/notification_usecases.dart';
-import 'package:Moneta/features/notifications/presentation/cubit/detected_inbox_cubit.dart';
-import 'package:Moneta/features/notifications/presentation/cubit/detected_inbox_state.dart';
-import 'package:Moneta/features/notifications/presentation/cubit/notification_settings_cubit.dart';
+import 'package:moneta/core/database/app_database.dart';
+import 'package:moneta/core/database/detected_repository.dart';
+import 'package:moneta/core/database/wallet_repository.dart';
+import 'package:moneta/core/utils/usecase.dart';
+import 'package:moneta/features/notifications/data/datasources/notification_local_datasource.dart';
+import 'package:moneta/features/notifications/data/repositories/notification_repository_impl.dart';
+import 'package:moneta/features/notifications/domain/entities/detected_transaction_entity.dart';
+import 'package:moneta/features/notifications/domain/usecases/notification_usecases.dart';
+import 'package:moneta/features/notifications/presentation/cubit/detected_inbox_cubit.dart';
+import 'package:moneta/features/notifications/presentation/cubit/detected_inbox_state.dart';
+import 'package:moneta/features/notifications/presentation/cubit/notification_settings_cubit.dart';
 
 import 'support/test_helpers.dart';
 
@@ -36,6 +36,7 @@ void main() {
         ignore: IgnoreDetectedUseCase(repo),
         ignoreAll: IgnoreAllDetectedUseCase(repo),
         changeWallet: ChangeDetectedWalletUseCase(repo),
+        changeType: ChangeDetectedTypeUseCase(repo),
       );
 
   Future<void> add(String fp, double amount, {String type = 'expense'}) =>

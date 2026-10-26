@@ -126,6 +126,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       helpText: 'Pilih Rentang Tanggal (Maksimal 1 Bulan & s/d Hari ini)',
       confirmText: 'Terapkan',
       cancelText: 'Batal',
+      fieldStartHintText: 'dd/mm/yyyy',
+      fieldEndHintText: 'dd/mm/yyyy',
+      fieldStartLabelText: 'Tanggal mulai',
+      fieldEndLabelText: 'Tanggal akhir',
+      errorFormatText: 'Format tidak valid (dd/mm/yyyy)',
+      errorInvalidText: 'Tanggal di luar rentang',
+      errorInvalidRangeText: 'Rentang tanggal tidak valid',
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -136,7 +143,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               onSurface: AppColors.inkPrimary,
             ),
           ),
-          child: child!,
+          child: AppDatePickerWrapper(child: child!),
         );
       },
     );

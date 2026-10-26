@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
-import 'package:Moneta/core/database/app_database.dart';
-import 'package:Moneta/core/database/wallet_repository.dart';
-import 'package:Moneta/core/sync/sync_service.dart';
+import 'package:moneta/core/database/app_database.dart';
+import 'package:moneta/core/database/wallet_repository.dart';
+import 'package:moneta/core/sync/sync_service.dart';
 
 import 'support/test_helpers.dart';
 

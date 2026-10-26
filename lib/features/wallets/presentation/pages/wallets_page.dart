@@ -684,7 +684,7 @@ class _WalletsPageState extends State<WalletsPage> {
                         borderRadius: BorderRadius.circular(16),
                         clipBehavior: Clip.antiAlias,
                         child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
+                          child: AppDropdownButton<String>(
                             padding: const EdgeInsets.symmetric(horizontal: 14),
                             value: wallets.any((w) => w.id == fromWalletId)
                                 ? fromWalletId
@@ -761,7 +761,7 @@ class _WalletsPageState extends State<WalletsPage> {
                           borderRadius: BorderRadius.circular(16),
                           clipBehavior: Clip.antiAlias,
                           child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
+                            child: AppDropdownButton<String>(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 14,
                               ),
@@ -879,7 +879,7 @@ class _WalletsPageState extends State<WalletsPage> {
                             borderRadius: BorderRadius.circular(16),
                             clipBehavior: Clip.antiAlias,
                             child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
+                              child: AppDropdownButton<String>(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 14,
                                 ),
@@ -953,7 +953,7 @@ class _WalletsPageState extends State<WalletsPage> {
                           borderRadius: BorderRadius.circular(16),
                           clipBehavior: Clip.antiAlias,
                           child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
+                            child: AppDropdownButton<String>(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 14,
                               ),
@@ -1098,6 +1098,11 @@ class _WalletsPageState extends State<WalletsPage> {
                               lastDate: DateTime(now.year + 5, 12, 31),
                               barrierColor: AppColors.glassScrim,
                               helpText: 'Pilih Tanggal Eksekusi Rutin',
+                              fieldHintText: 'dd/mm/yyyy',
+                              fieldLabelText: 'Masukkan tanggal',
+                              errorFormatText:
+                                  'Format tidak valid (dd/mm/yyyy)',
+                              errorInvalidText: 'Tanggal di luar rentang',
                               builder: (context, child) {
                                 return Theme(
                                   data: Theme.of(context).copyWith(
@@ -1120,7 +1125,7 @@ class _WalletsPageState extends State<WalletsPage> {
                                       ),
                                     ),
                                   ),
-                                  child: child!,
+                                  child: AppDatePickerWrapper(child: child!),
                                 );
                               },
                             );
@@ -1557,10 +1562,14 @@ class _Field extends StatelessWidget {
       child: TextField(
         controller: controller,
         onChanged: onChanged,
-        keyboardType: (money || number)
-            ? const TextInputType.numberWithOptions(decimal: true)
-            : TextInputType.text,
-        inputFormatters: money ? const [RupiahInputFormatter()] : null,
+        keyboardType: money
+            ? TextInputType.number
+            : (number
+                  ? const TextInputType.numberWithOptions(decimal: true)
+                  : TextInputType.text),
+        inputFormatters: money
+            ? const [RupiahInputFormatter()]
+            : (number ? const [DecimalInputFormatter()] : null),
         style: const TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
@@ -2088,7 +2097,7 @@ class _TransferFormState extends State<_TransferForm> {
             borderRadius: BorderRadius.circular(16),
             clipBehavior: Clip.antiAlias,
             child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
+              child: AppDropdownButton<String>(
                 value: widget.wallets.any((w) => w.id == _from)
                     ? _from
                     : (widget.wallets.isNotEmpty
@@ -2164,7 +2173,7 @@ class _TransferFormState extends State<_TransferForm> {
             borderRadius: BorderRadius.circular(16),
             clipBehavior: Clip.antiAlias,
             child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
+              child: AppDropdownButton<String>(
                 value: toWallets.any((w) => w.id == _to)
                     ? _to
                     : (toWallets.isNotEmpty ? toWallets.first.id : null),

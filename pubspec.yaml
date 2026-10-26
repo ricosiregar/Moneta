@@ -1,5 +1,5 @@
-name: Moneta
-description: "Personal finance tracker dengan AI insight."
+name: moneta
+description: "Personal money tracker."
 
 publish_to: "none"
 
@@ -65,7 +65,6 @@ dependencies:
   liquid_glass_widgets: ^1.9.0
   uuid: ^4.6.0
   file_picker: ^11.0.3
-
 
 dev_dependencies:
   flutter_test:

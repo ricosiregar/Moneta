@@ -1,4 +1,4 @@
-import 'package:Moneta/core/database/finance_repository.dart';
+import 'package:moneta/core/database/finance_repository.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../../domain/entities/auto_schedule_entity.dart';

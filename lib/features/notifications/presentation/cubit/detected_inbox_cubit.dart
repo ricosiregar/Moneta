@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:Moneta/core/network/error/failures.dart';
-import 'package:Moneta/core/utils/usecase.dart';
+import 'package:moneta/core/network/error/failures.dart';
+import 'package:moneta/core/utils/usecase.dart';
 import 'package:dartz/dartz.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -17,11 +17,13 @@ class DetectedInboxCubit extends Cubit<DetectedInboxState> {
     required IgnoreDetectedUseCase ignore,
     required IgnoreAllDetectedUseCase ignoreAll,
     required ChangeDetectedWalletUseCase changeWallet,
+    required ChangeDetectedTypeUseCase changeType,
   })  : _watchPending = watchPending,
         _record = record,
         _ignore = ignore,
         _ignoreAll = ignoreAll,
         _changeWallet = changeWallet,
+        _changeType = changeType,
         super(const DetectedInboxState());
 
   final WatchPendingDetectedUseCase _watchPending;
@@ -29,6 +31,7 @@ class DetectedInboxCubit extends Cubit<DetectedInboxState> {
   final IgnoreDetectedUseCase _ignore;
   final IgnoreAllDetectedUseCase _ignoreAll;
   final ChangeDetectedWalletUseCase _changeWallet;
+  final ChangeDetectedTypeUseCase _changeType;
 
   StreamSubscription<Either<Failure, List<DetectedTransactionEntity>>>? _sub;
 
@@ -58,6 +61,9 @@ class DetectedInboxCubit extends Cubit<DetectedInboxState> {
 
   Future<Either<Failure, void>> changeWallet(String id, String walletId) =>
       _changeWallet(ChangeDetectedWalletParams(id, walletId));
+
+  Future<Either<Failure, void>> changeType(String id, String type) =>
+      _changeType(ChangeDetectedTypeParams(id, type));
 
   @override
   Future<void> close() {

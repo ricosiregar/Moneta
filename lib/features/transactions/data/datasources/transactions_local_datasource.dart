@@ -1,4 +1,4 @@
-import 'package:Moneta/core/database/finance_repository.dart';
+import 'package:moneta/core/database/finance_repository.dart';
 
 import '../models/feed_item_model.dart';
 

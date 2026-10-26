@@ -1,5 +1,5 @@
-import 'package:Moneta/core/network/error/failures.dart';
-import 'package:Moneta/core/utils/usecase.dart';
+import 'package:moneta/core/network/error/failures.dart';
+import 'package:moneta/core/utils/usecase.dart';
 import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
 
@@ -59,6 +59,25 @@ class ChangeDetectedWalletUseCase
   @override
   Future<Either<Failure, void>> call(ChangeDetectedWalletParams params) =>
       repository.changeWallet(params.id, params.walletId);
+}
+
+class ChangeDetectedTypeParams extends Equatable {
+  final String id;
+  final String type; // income | expense
+  const ChangeDetectedTypeParams(this.id, this.type);
+
+  @override
+  List<Object?> get props => [id, type];
+}
+
+class ChangeDetectedTypeUseCase
+    implements UseCase<void, ChangeDetectedTypeParams> {
+  final NotificationRepository repository;
+  ChangeDetectedTypeUseCase(this.repository);
+
+  @override
+  Future<Either<Failure, void>> call(ChangeDetectedTypeParams params) =>
+      repository.changeType(params.id, params.type);
 }
 
 // ── Sumber notifikasi ──

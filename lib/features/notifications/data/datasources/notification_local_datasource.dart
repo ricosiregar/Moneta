@@ -1,4 +1,4 @@
-import 'package:Moneta/core/database/detected_repository.dart';
+import 'package:moneta/core/database/detected_repository.dart';
 
 import '../models/detected_transaction_model.dart';
 import '../models/notification_source_model.dart';
@@ -10,6 +10,7 @@ abstract class NotificationLocalDataSource {
   Future<void> ignore(String id);
   Future<void> ignoreAll();
   Future<void> changeWallet(String id, String walletId);
+  Future<void> changeType(String id, String type);
 
   Stream<List<NotificationSourceModel>> watchSources();
   Future<void> upsertSource({
@@ -56,6 +57,10 @@ class NotificationLocalDataSourceImpl implements NotificationLocalDataSource {
   @override
   Future<void> changeWallet(String id, String walletId) =>
       detected.changeWallet(id, walletId);
+
+  @override
+  Future<void> changeType(String id, String type) =>
+      detected.changeType(id, type);
 
   @override
   Stream<List<NotificationSourceModel>> watchSources() =>

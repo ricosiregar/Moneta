@@ -82,7 +82,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     );
   }
 
-  void _onAuthUserChanged(AuthUserChanged event, Emitter<AuthState> emit) {
+  Future<void> _onAuthUserChanged(
+    AuthUserChanged event,
+    Emitter<AuthState> emit,
+  ) async {
     if (event.authStateEntity.event == AuthEventType.passwordRecovery) {
       emit(
         state.copyWith(
@@ -96,7 +99,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       // Simpan nama ke SharedPreferences agar tersedia offline
       final name = user.fullName;
       if (name != null && name.isNotEmpty) {
-        localStorage.saveUserName(name);
+        await localStorage.saveUserName(name);
       }
       emit(
         state.copyWith(
@@ -120,8 +123,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       SignInWithEmailParams(email: event.email, password: event.password),
     );
 
-    result.fold(
-      (failure) => emit(
+    await result.fold(
+      (failure) async => emit(
         state.copyWith(
           status: AuthStatus.failure,
           errorMessage: failure.message,
@@ -157,8 +160,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       ),
     );
 
-    result.fold(
-      (failure) => emit(
+    await result.fold(
+      (failure) async => emit(
         state.copyWith(
           status: AuthStatus.failure,
           errorMessage: failure.message,

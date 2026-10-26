@@ -1,5 +1,7 @@
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_colors.dart';
 import 'app_buttons.dart' show RRectInsetGlassPainter;
@@ -24,6 +26,16 @@ final Pattern _nonDigitPattern = RegExp(r'[^\d]');
 final Pattern _leadingZerosPattern = RegExp(r'^0+(?=\d)');
 // ignore: deprecated_member_use
 final Pattern _thousandsPattern = RegExp(r'\B(?=(\d{3})+(?!\d))');
+// ignore: deprecated_member_use
+final Pattern _dateMonthYearPattern = RegExp(r'^(\d{2})(\d{2})(\d{1,4})$');
+// ignore: deprecated_member_use
+final Pattern _dateMonthPattern = RegExp(r'^(\d{2})(\d{1,2})$');
+// ignore: deprecated_member_use
+final Pattern _compactDateParsePattern = RegExp(r'^(\d{1,2})/(\d{1,2})/(\d{4})$');
+// ignore: deprecated_member_use
+final Pattern _rawDigitsDateParsePattern = RegExp(r'^(\d{2})(\d{2})(\d{4})$');
+// ignore: deprecated_member_use
+final Pattern _nonDecimalPattern = RegExp(r'[^\d.,]');
 
 /// Memformat angka menjadi string ribuan dengan titik menggunakan RegExp (contoh: 1500000 -> 1.500.000).
 String fmtThousands(num amount) {
@@ -61,6 +73,242 @@ class RupiahInputFormatter extends TextInputFormatter {
       selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
+}
+
+/// TextInputFormatter berbasis RegExp untuk input angka/persentase desimal.
+class DecimalInputFormatter extends TextInputFormatter {
+  const DecimalInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final cleaned = newValue.text.replaceAll(_nonDecimalPattern, '');
+    return TextEditingValue(
+      text: cleaned,
+      selection: TextSelection.collapsed(offset: cleaned.length),
+    );
+  }
+}
+
+/// Memformat teks input tanggal angka menggunakan RegExp menjadi DD/MM/YYYY
+/// (contoh: 11092026 -> 11/09/2026).
+String formatDateString(String input) {
+  var digits = input.replaceAll(_nonDigitPattern, '');
+  if (digits.isEmpty) return '';
+  if (digits.length > 8) {
+    digits = digits.substring(0, 8);
+  }
+  if (digits.length >= 5) {
+    return digits.replaceFirstMapped(
+      _dateMonthYearPattern,
+      (m) => '${m[1]}/${m[2]}/${m[3]}',
+    );
+  }
+  if (digits.length >= 3) {
+    return digits.replaceFirstMapped(
+      _dateMonthPattern,
+      (m) => '${m[1]}/${m[2]}',
+    );
+  }
+  return digits;
+}
+
+/// Mengurai string tanggal berformat DD/MM/YYYY atau DDMMYYYY menjadi [DateTime].
+DateTime? parseDateString(String? inputString) {
+  if (inputString == null) return null;
+  final trimmed = inputString.trim();
+  Match? match = _compactDateParsePattern.matchAsPrefix(trimmed);
+  match ??= _rawDigitsDateParsePattern.matchAsPrefix(
+    trimmed.replaceAll(_nonDigitPattern, ''),
+  );
+  if (match == null) return null;
+  final day = int.tryParse(match.group(1)!);
+  final month = int.tryParse(match.group(2)!);
+  final year = int.tryParse(match.group(3)!);
+  if (day == null || month == null || year == null) return null;
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  final result = DateTime(year, month, day);
+  if (result.year != year || result.month != month || result.day != day) {
+    return null;
+  }
+  return result;
+}
+
+/// TextInputFormatter berbasis RegExp untuk input tanggal manual (DD/MM/YYYY).
+class DateInputFormatter extends TextInputFormatter {
+  const DateInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final formatted = formatDateString(newValue.text);
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+/// Pembungkus dialog DatePicker / DateRangePicker yang otomatis memasang
+/// RegExp formatter DD/MM/YYYY (mis. ketik 11092026 -> 11/09/2026) pada mode
+/// input tanggal manual di kalender.
+class AppDatePickerWrapper extends StatefulWidget {
+  final Widget child;
+  const AppDatePickerWrapper({super.key, required this.child});
+
+  @override
+  State<AppDatePickerWrapper> createState() => _AppDatePickerWrapperState();
+}
+
+class _AppDatePickerWrapperState extends State<AppDatePickerWrapper> {
+  final Map<TextEditingController, VoidCallback> _attachedControllers = {};
+  bool _isFormatting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    FocusManager.instance.addListener(_onFocusChanged);
+    _scheduleScan();
+  }
+
+  void _onFocusChanged() {
+    _scheduleScan();
+  }
+
+  void _scheduleScan() {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _scanAndAttach(context);
+    });
+  }
+
+  void _scanAndAttach(BuildContext rootContext) {
+    void visitor(Element element) {
+      if (element is StatefulElement && element.state is EditableTextState) {
+        final editableState = element.state as EditableTextState;
+        final controller = editableState.widget.controller;
+        if (!_attachedControllers.containsKey(controller)) {
+          void listener() {
+            if (_isFormatting) return;
+            final raw = controller.text;
+            if (raw.isEmpty) return;
+            final formatted = formatDateString(raw);
+            if (formatted != raw) {
+              _isFormatting = true;
+              try {
+                final newValue = TextEditingValue(
+                  text: formatted,
+                  selection: TextSelection.collapsed(
+                    offset: formatted.length,
+                  ),
+                );
+                if (editableState.mounted) {
+                  editableState.userUpdateTextEditingValue(
+                    newValue,
+                    SelectionChangedCause.keyboard,
+                  );
+                } else {
+                  controller.value = newValue;
+                }
+              } finally {
+                _isFormatting = false;
+              }
+            }
+          }
+
+          controller.addListener(listener);
+          _attachedControllers[controller] = listener;
+        }
+      }
+      element.visitChildren(visitor);
+    }
+
+    rootContext.visitChildElements(visitor);
+  }
+
+  @override
+  void dispose() {
+    FocusManager.instance.removeListener(_onFocusChanged);
+    for (final entry in _attachedControllers.entries) {
+      entry.key.removeListener(entry.value);
+    }
+    _attachedControllers.clear();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _scheduleScan();
+    return Localizations.override(
+      context: context,
+      delegates: const [_IdDateMaterialLocalizationsDelegate()],
+      child: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (_) => _scheduleScan(),
+        onPointerUp: (_) => _scheduleScan(),
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class _IdDateMaterialLocalizations extends DefaultMaterialLocalizations {
+  const _IdDateMaterialLocalizations();
+
+  @override
+  String get dateHelpText => 'dd/mm/yyyy';
+
+  @override
+  String get dateInputLabel => 'Masukkan tanggal';
+
+  @override
+  String get dateRangeStartLabel => 'Tanggal mulai';
+
+  @override
+  String get dateRangeEndLabel => 'Tanggal akhir';
+
+  @override
+  String get invalidDateFormatLabel => 'Format tidak valid (dd/mm/yyyy)';
+
+  @override
+  String get invalidDateRangeLabel => 'Rentang tanggal tidak valid';
+
+  @override
+  String get dateOutOfRangeLabel => 'Tanggal di luar rentang';
+
+  @override
+  String formatCompactDate(DateTime date) {
+    final d = date.day.toString().padLeft(2, '0');
+    final m = date.month.toString().padLeft(2, '0');
+    final y = date.year.toString().padLeft(4, '0');
+    return '$d/$m/$y';
+  }
+
+  @override
+  DateTime? parseCompactDate(String? inputString) =>
+      parseDateString(inputString);
+}
+
+class _IdDateMaterialLocalizationsDelegate
+    extends LocalizationsDelegate<MaterialLocalizations> {
+  const _IdDateMaterialLocalizationsDelegate();
+
+  @override
+  bool isSupported(Locale locale) => true;
+
+  @override
+  Future<MaterialLocalizations> load(Locale locale) =>
+      SynchronousFuture<MaterialLocalizations>(
+        const _IdDateMaterialLocalizations(),
+      );
+
+  @override
+  bool shouldReload(_IdDateMaterialLocalizationsDelegate old) => false;
 }
 
 String fmtRp(num amount, {bool sign = false}) {
@@ -654,10 +902,12 @@ class FunPageHeader extends StatelessWidget {
 class FunBadge extends StatelessWidget {
   final String text;
   final IconData? icon;
-  const FunBadge(this.text, {super.key, this.icon});
+  final Color? color;
+  const FunBadge(this.text, {super.key, this.icon, this.color});
 
   @override
   Widget build(BuildContext context) {
+    final textColor = color ?? AppColors.inkSecondary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -668,15 +918,15 @@ class FunBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 12, color: AppColors.inkSecondary),
+            Icon(icon, size: 12, color: textColor),
             const SizedBox(width: 4),
           ],
           Text(
             text,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: AppColors.inkSecondary,
+              color: textColor,
             ),
           ),
         ],
@@ -1020,4 +1270,453 @@ class _BarPainter extends CustomPainter {
       old.labels != labels ||
       old.progress != progress ||
       old.selectedIndex != selectedIndex;
+}
+
+// ── Dynamic Position Dropdown ───────────────────────────────────────────────
+
+/// Pengganti [DropdownButton] yang otomatis menutup keyboard saat diklik dan
+/// memperbarui posisi popup menu secara real-time mengikuti pergerakan tombol
+/// (misalnya ketika bottom sheet turun saat keyboard tertutup).
+class AppDropdownButton<T> extends StatefulWidget {
+  final T? value;
+  final List<DropdownMenuItem<T>>? items;
+  final ValueChanged<T?>? onChanged;
+  final bool isExpanded;
+  final EdgeInsetsGeometry? padding;
+  final BorderRadius? borderRadius;
+  final Color? dropdownColor;
+  final double? menuMaxHeight;
+  final Widget? icon;
+  final Widget? hint;
+  final TextStyle? style;
+
+  const AppDropdownButton({
+    super.key,
+    this.value,
+    required this.items,
+    required this.onChanged,
+    this.isExpanded = false,
+    this.padding,
+    this.borderRadius,
+    this.dropdownColor,
+    this.menuMaxHeight,
+    this.icon,
+    this.hint,
+    this.style,
+  });
+
+  @override
+  State<AppDropdownButton<T>> createState() => _AppDropdownButtonState<T>();
+}
+
+class _AppDropdownButtonState<T> extends State<AppDropdownButton<T>> {
+  bool get _enabled =>
+      widget.items != null &&
+      widget.items!.isNotEmpty &&
+      widget.onChanged != null;
+
+  void _handleTap() {
+    final items = widget.items;
+    if (!_enabled || items == null) return;
+
+    // Tutup keyboard aktif terlebih dahulu agar modal bergerak ke posisi normal
+    // dan popup menu ikut mengikuti posisi tombol secara dinamis.
+    FocusManager.instance.primaryFocus?.unfocus();
+
+    final navigator = Navigator.of(context);
+    final overlayBox =
+        navigator.overlay?.context.findRenderObject() as RenderBox?;
+    final buttonBox = context.findRenderObject() as RenderBox?;
+    if (buttonBox == null || !buttonBox.hasSize) return;
+
+    final initialRect =
+        buttonBox.localToGlobal(Offset.zero, ancestor: overlayBox) &
+            buttonBox.size;
+
+    final effectiveStyle = widget.style ??
+        Theme.of(context).textTheme.titleMedium ??
+        const TextStyle(
+          fontSize: 13.5,
+          fontWeight: FontWeight.w700,
+          color: AppColors.inkPrimary,
+        );
+
+    navigator
+        .push<_AppDropdownResult<T>>(
+          _AppDropdownRoute<T>(
+            buttonContext: context,
+            initialButtonRect: initialRect,
+            items: items,
+            selectedValue: widget.value,
+            borderRadius: widget.borderRadius ?? BorderRadius.circular(16),
+            dropdownColor: widget.dropdownColor ?? Colors.white,
+            menuMaxHeight: widget.menuMaxHeight,
+            style: effectiveStyle,
+          ),
+        )
+        .then((result) {
+          if (!mounted || result == null) return;
+          widget.onChanged?.call(result.value);
+        });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveStyle = widget.style ??
+        Theme.of(context).textTheme.titleMedium ??
+        const TextStyle(
+          fontSize: 13.5,
+          fontWeight: FontWeight.w700,
+          color: AppColors.inkPrimary,
+        );
+
+    DropdownMenuItem<T>? selectedItem;
+    final items = widget.items;
+    if (items != null && widget.value != null) {
+      for (final item in items) {
+        if (item.value == widget.value) {
+          selectedItem = item;
+          break;
+        }
+      }
+    }
+
+    final Widget displayChild = selectedItem != null
+        ? DefaultTextStyle(
+            style: effectiveStyle,
+            child: selectedItem.child,
+          )
+        : DefaultTextStyle(
+            style: effectiveStyle.copyWith(color: AppColors.inkMuted),
+            child: widget.hint ?? const SizedBox.shrink(),
+          );
+
+    final Widget iconWidget = IconTheme.merge(
+      data: IconThemeData(
+        color: _enabled ? AppColors.inkSecondary : AppColors.inkMuted,
+        size: 24,
+      ),
+      child: widget.icon ?? const Icon(Icons.arrow_drop_down),
+    );
+
+    Widget result = SizedBox(
+      height: kMinInteractiveDimension,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisSize: widget.isExpanded ? MainAxisSize.max : MainAxisSize.min,
+        children: [
+          if (widget.isExpanded)
+            Expanded(child: displayChild)
+          else
+            Flexible(child: displayChild),
+          const SizedBox(width: 4),
+          iconWidget,
+        ],
+      ),
+    );
+
+    if (widget.padding != null) {
+      result = Padding(padding: widget.padding!, child: result);
+    }
+
+    return Semantics(
+      button: true,
+      child: InkWell(
+        onTap: _enabled ? _handleTap : null,
+        borderRadius: widget.borderRadius,
+        child: result,
+      ),
+    );
+  }
+}
+
+class _AppDropdownResult<T> {
+  final T? value;
+  const _AppDropdownResult(this.value);
+}
+
+class _AppDropdownRoute<T> extends PopupRoute<_AppDropdownResult<T>> {
+  final BuildContext buttonContext;
+  final Rect initialButtonRect;
+  final List<DropdownMenuItem<T>> items;
+  final T? selectedValue;
+  final BorderRadius borderRadius;
+  final Color dropdownColor;
+  final double? menuMaxHeight;
+  final TextStyle style;
+
+  _AppDropdownRoute({
+    required this.buttonContext,
+    required this.initialButtonRect,
+    required this.items,
+    required this.selectedValue,
+    required this.borderRadius,
+    required this.dropdownColor,
+    required this.menuMaxHeight,
+    required this.style,
+  });
+
+  @override
+  Duration get transitionDuration => const Duration(milliseconds: 180);
+
+  @override
+  bool get barrierDismissible => true;
+
+  @override
+  Color? get barrierColor => Colors.transparent;
+
+  @override
+  String? get barrierLabel => 'Dismiss';
+
+  @override
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) {
+    return _AppDropdownMenuPage<T>(
+      route: this,
+      animation: animation,
+    );
+  }
+}
+
+class _AppDropdownMenuPage<T> extends StatefulWidget {
+  final _AppDropdownRoute<T> route;
+  final Animation<double> animation;
+
+  const _AppDropdownMenuPage({
+    required this.route,
+    required this.animation,
+  });
+
+  @override
+  State<_AppDropdownMenuPage<T>> createState() =>
+      _AppDropdownMenuPageState<T>();
+}
+
+class _AppDropdownMenuPageState<T> extends State<_AppDropdownMenuPage<T>>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  late final ValueNotifier<Rect> _buttonRectNotifier =
+      ValueNotifier<Rect>(widget.route.initialButtonRect);
+  late final Ticker _ticker;
+  int _trackUntilMs = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _ticker = createTicker(_onTick);
+    _extendTracking(1200);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncButtonRect());
+  }
+
+  @override
+  void didChangeMetrics() {
+    _extendTracking(800);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncButtonRect());
+  }
+
+  void _extendTracking(int durationMs) {
+    final target = DateTime.now().millisecondsSinceEpoch + durationMs;
+    if (target > _trackUntilMs) {
+      _trackUntilMs = target;
+    }
+    if (!_ticker.isActive) {
+      _ticker.start();
+    }
+  }
+
+  void _onTick(Duration elapsed) {
+    _syncButtonRect();
+    if (DateTime.now().millisecondsSinceEpoch > _trackUntilMs) {
+      _ticker.stop();
+    }
+  }
+
+  void _syncButtonRect() {
+    if (!mounted) return;
+    final btnCtx = widget.route.buttonContext;
+    if (!btnCtx.mounted) return;
+    try {
+      final pageObj = context.findRenderObject();
+      final buttonObj = btnCtx.findRenderObject();
+      if (pageObj is RenderBox &&
+          pageObj.attached &&
+          pageObj.hasSize &&
+          buttonObj is RenderBox &&
+          buttonObj.attached &&
+          buttonObj.hasSize) {
+        final nextRect =
+            buttonObj.localToGlobal(Offset.zero, ancestor: pageObj) &
+                buttonObj.size;
+        if (nextRect != _buttonRectNotifier.value) {
+          _buttonRectNotifier.value = nextRect;
+        }
+      }
+    } catch (_) {
+      // Abaikan jika sedang di tengah transisi layout frame.
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _ticker.dispose();
+    _buttonRectNotifier.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final curved = CurvedAnimation(
+      parent: widget.animation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+
+    return MediaQuery.removePadding(
+      context: context,
+      removeTop: true,
+      removeBottom: true,
+      removeLeft: true,
+      removeRight: true,
+      child: CustomSingleChildLayout(
+        delegate: _AppDropdownLayoutDelegate(
+          buttonRectListenable: _buttonRectNotifier,
+          menuMaxHeight: widget.route.menuMaxHeight,
+          viewPadding: media.padding,
+        ),
+        child: FadeTransition(
+          opacity: curved,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.96, end: 1.0).animate(curved),
+            alignment: Alignment.topCenter,
+            child: Material(
+              color: widget.route.dropdownColor,
+              elevation: 10,
+              shadowColor: const Color(0x280F172A),
+              shape: RoundedRectangleBorder(
+                borderRadius: widget.route.borderRadius,
+                side: const BorderSide(
+                  color: Color(0xFFE2E8F0),
+                  width: 1,
+                ),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (int index = 0;
+                        index < widget.route.items.length;
+                        index++)
+                      Builder(
+                        builder: (context) {
+                          final item = widget.route.items[index];
+                          final isSelected =
+                              item.value == widget.route.selectedValue;
+                          return InkWell(
+                            onTap: item.enabled
+                                ? () {
+                                    item.onTap?.call();
+                                    Navigator.of(context).pop(
+                                      _AppDropdownResult<T>(item.value),
+                                    );
+                                  }
+                                : null,
+                            child: Container(
+                              constraints: const BoxConstraints(minHeight: 44),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 8,
+                              ),
+                              alignment: item.alignment,
+                              color: isSelected
+                                  ? AppColors.accentBlue.withValues(alpha: 0.08)
+                                  : null,
+                              child: DefaultTextStyle(
+                                style: widget.route.style,
+                                child: item.child,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AppDropdownLayoutDelegate extends SingleChildLayoutDelegate {
+  final ValueNotifier<Rect> buttonRectListenable;
+  final double? menuMaxHeight;
+  final EdgeInsets viewPadding;
+
+  _AppDropdownLayoutDelegate({
+    required this.buttonRectListenable,
+    required this.menuMaxHeight,
+    required this.viewPadding,
+  }) : super(relayout: buttonRectListenable);
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
+    final buttonRect = buttonRectListenable.value;
+    final maxAllowedWidth = math.max(0.0, constraints.maxWidth - 16.0);
+    final double width = buttonRect.width
+        .clamp(
+          math.min(120.0, maxAllowedWidth),
+          maxAllowedWidth,
+        )
+        .toDouble();
+    final availableHeight = math.max(
+      120.0,
+      constraints.maxHeight - viewPadding.top - viewPadding.bottom - 24.0,
+    );
+    final maxHeight = math.min(
+      constraints.maxHeight,
+      menuMaxHeight != null
+          ? math.min(menuMaxHeight!, availableHeight)
+          : math.min(300.0, availableHeight),
+    );
+    return BoxConstraints(
+      minWidth: width,
+      maxWidth: width,
+      maxHeight: math.max(0.0, maxHeight),
+    );
+  }
+
+  @override
+  Offset getPositionForChild(Size size, Size childSize) {
+    final buttonRect = buttonRectListenable.value;
+    final double left = buttonRect.left.clamp(
+      8.0,
+      math.max(8.0, size.width - childSize.width - 8.0),
+    );
+
+    final double topLimit = viewPadding.top + 8.0;
+    final double bottomLimit = math.max(
+      topLimit,
+      size.height - viewPadding.bottom - childSize.height - 8.0,
+    );
+    final double top = buttonRect.top.clamp(topLimit, bottomLimit);
+
+    return Offset(left, top);
+  }
+
+  @override
+  bool shouldRelayout(covariant _AppDropdownLayoutDelegate oldDelegate) {
+    return oldDelegate.buttonRectListenable != buttonRectListenable ||
+        oldDelegate.menuMaxHeight != menuMaxHeight ||
+        oldDelegate.viewPadding != viewPadding;
+  }
 }

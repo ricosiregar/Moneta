@@ -1,4 +1,4 @@
-import 'package:Moneta/core/network/error/failures.dart';
+import 'package:moneta/core/network/error/failures.dart';
 import 'package:dartz/dartz.dart';
 import '../entities/auth_signup_result.dart';
 import '../entities/auth_state_entity.dart';

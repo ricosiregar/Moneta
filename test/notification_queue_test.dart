@@ -1,9 +1,10 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:Moneta/core/database/app_database.dart';
-import 'package:Moneta/core/database/detected_repository.dart';
-import 'package:Moneta/core/database/wallet_repository.dart';
-import 'package:Moneta/features/notifications/data/services/notification_capture_service.dart';
+import 'package:moneta/core/database/app_database.dart';
+import 'package:moneta/core/database/detected_repository.dart';
+import 'package:moneta/core/database/wallet_repository.dart';
+import 'package:moneta/features/notifications/data/services/bank_parser.dart';
+import 'package:moneta/features/notifications/data/services/notification_capture_service.dart';
 
 import 'support/test_helpers.dart';
 
@@ -102,7 +103,14 @@ void main() {
     await detected.setCaptureEnabled(true);
     await service.syncAllowedPackages();
     expect(calls.last.method, 'setAllowedPackages');
-    expect(calls.last.arguments, ['com.bank.x']);
+    final sent = (calls.last.arguments as List).cast<String>();
+    // Bank bawaan (deteksi otomatis) selalu ikut, ditambah sumber kustom.
+    expect(
+      sent,
+      containsAll([for (final k in knownBankPackages) k.$2]),
+    );
+    expect(sent, contains('com.bank.x'));
+    expect(sent.toSet().length, sent.length, reason: 'tanpa duplikat');
 
     await detected.setCaptureEnabled(false);
     await service.syncAllowedPackages();

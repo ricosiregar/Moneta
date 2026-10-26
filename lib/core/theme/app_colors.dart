@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// MonTrack Design System - Color Palette & Gradients
+/// Moneta Design System - Color Palette & Gradients
 /// Modern Pastel Aurora & Frosted Glassmorphism
 abstract class AppColors {
   // ── Canvas & Surfaces ──
@@ -110,7 +110,9 @@ abstract class AppColors {
   static const Color glassSurfaceMuted = Color(0x73FFFFFF); // 45% white
   static const Color glassBorder = Color(0xB3FFFFFF); // 70% white specular rim
   static const Color glassBorderSubtle = Color(0x66FFFFFF); // 40% white
-  static const Color glassScrim = Color(0x400F172A); // 25% Slate 900 for frosted barrier
+  static const Color glassScrim = Color(
+    0x400F172A,
+  ); // 25% Slate 900 for frosted barrier
 
   static const LinearGradient glassCardGradient = LinearGradient(
     begin: Alignment.topLeft,
@@ -133,10 +135,7 @@ abstract class AppColors {
   static const LinearGradient glassHeroDarkGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [
-      Color(0xF00F172A),
-      Color(0xD91E293B),
-    ],
+    colors: [Color(0xF00F172A), Color(0xD91E293B)],
   );
 
   static const List<BoxShadow> glassShadowSoft = [

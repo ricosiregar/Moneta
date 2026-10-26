@@ -1,5 +1,5 @@
-import 'package:Moneta/core/network/error/failures.dart';
-import 'package:Moneta/core/utils/usecase.dart';
+import 'package:moneta/core/network/error/failures.dart';
+import 'package:moneta/core/utils/usecase.dart';
 import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
 

@@ -32,7 +32,7 @@ class BackupService {
     'saving_jar_entries',
   ];
 
-  static const _format = 'montrack-backup';
+  static const _format = 'moneta-backup';
   static const _version = 1;
 
   // ── Ekspor ──
@@ -74,26 +74,30 @@ class BackupService {
           : s;
     }
 
-    final buf = StringBuffer('Tanggal,Jenis,Nominal,Judul,Dompet,Kategori,Catatan\n');
+    final buf = StringBuffer(
+      'Tanggal,Jenis,Nominal,Judul,Dompet,Kategori,Catatan\n',
+    );
     for (final r in rows) {
       final date = DateTime.fromMillisecondsSinceEpoch(
         r.read<int>('date') * 1000,
       ).toIso8601String();
-      buf.writeln([
-        date,
-        r.read<String>('type'),
-        r.read<double>('amount'),
-        r.read<String>('title'),
-        r.readNullable<String>('wallet'),
-        r.readNullable<String>('category'),
-        r.readNullable<String>('note'),
-      ].map(esc).join(','));
+      buf.writeln(
+        [
+          date,
+          r.read<String>('type'),
+          r.read<double>('amount'),
+          r.read<String>('title'),
+          r.readNullable<String>('wallet'),
+          r.readNullable<String>('category'),
+          r.readNullable<String>('note'),
+        ].map(esc).join(','),
+      );
     }
     return buf.toString();
   }
 
-  Future<void> shareJson() => _share('montrack-backup.json', buildJson);
-  Future<void> shareCsv() => _share('montrack-transaksi.csv', buildCsv);
+  Future<void> shareJson() => _share('moneta-backup.json', buildJson);
+  Future<void> shareCsv() => _share('moneta-transaksi.csv', buildCsv);
 
   Future<void> _share(String name, Future<String> Function() build) async {
     final dir = await getTemporaryDirectory();
@@ -113,7 +117,7 @@ class BackupService {
       throw const FormatException('Berkas bukan JSON yang valid');
     }
     if (decoded is! Map || decoded['format'] != _format) {
-      throw const FormatException('Bukan berkas cadangan MonTrack');
+      throw const FormatException('Bukan berkas cadangan Moneta');
     }
     final tables = decoded['tables'];
     if (tables is! Map) throw const FormatException('Isi cadangan rusak');

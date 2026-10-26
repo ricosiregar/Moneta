@@ -204,6 +204,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       helpText: 'Pilih Rentang Tanggal (Maks 1 Bulan & s/d Hari ini)',
       confirmText: 'Terapkan',
       cancelText: 'Batal',
+      fieldStartHintText: 'dd/mm/yyyy',
+      fieldEndHintText: 'dd/mm/yyyy',
+      fieldStartLabelText: 'Tanggal mulai',
+      fieldEndLabelText: 'Tanggal akhir',
+      errorFormatText: 'Format tidak valid (dd/mm/yyyy)',
+      errorInvalidText: 'Tanggal di luar rentang',
+      errorInvalidRangeText: 'Rentang tanggal tidak valid',
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -221,7 +228,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
               ),
             ),
           ),
-          child: child!,
+          child: AppDatePickerWrapper(child: child!),
         );
       },
     );
@@ -586,7 +593,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                         borderRadius: BorderRadius.circular(16),
                         clipBehavior: Clip.antiAlias,
                         child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
+                          child: AppDropdownButton<String>(
                             padding: const EdgeInsets.symmetric(horizontal: 14),
                             value: _selectedWalletId != null &&
                                     _wallets
@@ -715,7 +722,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                           borderRadius: BorderRadius.circular(16),
                           clipBehavior: Clip.antiAlias,
                           child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
+                            child: AppDropdownButton<String>(
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 14),
                               value: _selectedCategory != null &&
@@ -1120,9 +1127,11 @@ class _Group extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (inc > 0) FunBadge('+${fmtRp(inc)}'),
+                if (inc > 0)
+                  FunBadge('+${fmtRp(inc)}', color: AppColors.inkPrimary),
                 if (inc > 0 && exp > 0) const SizedBox(width: 6),
-                if (exp > 0) FunBadge('-${fmtRp(exp)}'),
+                if (exp > 0)
+                  FunBadge('-${fmtRp(exp)}', color: AppColors.expense),
               ],
             ),
           ),
@@ -1157,6 +1166,7 @@ class _TxRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sub = tx.transfer ? tx.wallet : '${tx.category} · ${tx.wallet}';
+    final isExpense = !tx.transfer && tx.amount < 0;
     final rowRadius = BorderRadius.vertical(
       top: isFirst ? const Radius.circular(24) : Radius.zero,
       bottom: isLast ? const Radius.circular(24) : Radius.zero,
@@ -1204,10 +1214,10 @@ class _TxRow extends StatelessWidget {
               tx.transfer
                   ? fmtRp(tx.amount.abs())
                   : fmtRp(tx.amount, sign: true),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
-                color: AppColors.inkPrimary,
+                color: isExpense ? AppColors.expense : AppColors.inkPrimary,
                 letterSpacing: -0.3,
               ),
             ),

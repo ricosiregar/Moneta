@@ -43,8 +43,16 @@ const _eWalletPresets = ['ShopeePay', 'OVO', 'DANA', 'GoPay'];
 class WalletFormPage extends StatefulWidget {
   final List<WalletEntity> all;
   final WalletEntity? editing;
+  final String? initialName;
+  final String? initialType;
 
-  const WalletFormPage({super.key, required this.all, this.editing});
+  const WalletFormPage({
+    super.key,
+    required this.all,
+    this.editing,
+    this.initialName,
+    this.initialType,
+  });
 
   @override
   State<WalletFormPage> createState() => _WalletFormPageState();
@@ -54,7 +62,7 @@ class _WalletFormPageState extends State<WalletFormPage> {
   late final WalletsCubit _cubit = getIt<WalletsCubit>();
 
   late final _nameCtrl = TextEditingController(
-    text: widget.editing?.name ?? '',
+    text: widget.editing?.name ?? widget.initialName ?? '',
   );
   late final _purposeCtrl = TextEditingController(
     text: widget.editing?.purpose ?? '',
@@ -66,7 +74,7 @@ class _WalletFormPageState extends State<WalletFormPage> {
   );
 
   // 'cash' | 'bank' | 'e_wallet'
-  late String _type = widget.editing?.type ?? 'bank';
+  late String _type = widget.editing?.type ?? widget.initialType ?? 'bank';
   late bool _isParent =
       widget.editing?.parentId == null &&
       (widget.editing?.isIncomeSource ?? true);
@@ -97,7 +105,8 @@ class _WalletFormPageState extends State<WalletFormPage> {
   @override
   void initState() {
     super.initState();
-    final initialName = widget.editing?.name.trim() ?? '';
+    final initialName =
+        (widget.editing?.name ?? widget.initialName ?? '').trim();
     if (initialName.isNotEmpty && _type != 'cash') {
       final presets = _type == 'bank' ? _bankPresets : _eWalletPresets;
       final isPreset = presets.any(
@@ -504,7 +513,7 @@ class _WalletFormPageState extends State<WalletFormPage> {
               borderRadius: BorderRadius.circular(16),
               clipBehavior: Clip.antiAlias,
               child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
+                child: AppDropdownButton<String>(
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   value: dropdownValue,
                   isExpanded: true,

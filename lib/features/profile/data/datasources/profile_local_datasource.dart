@@ -1,4 +1,4 @@
-import 'package:Moneta/core/backup/backup_service.dart';
+import 'package:moneta/core/backup/backup_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 abstract class ProfileLocalDataSource {

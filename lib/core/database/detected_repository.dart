@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../features/notifications/data/services/bank_parser.dart';
 import 'app_database.dart';
 
 class DetectedView {
@@ -49,7 +50,7 @@ class DetectedRepository {
       SELECT d.id, d.wallet_id, d.source_package, d.amount, d.type,
              d.merchant, d.detected_at, w.name AS wallet_name
       FROM detected_transactions d
-      LEFT JOIN wallets w ON w.id = d.wallet_id
+      LEFT JOIN wallets w ON w.id = d.wallet_id AND w.deleted_at IS NULL
       WHERE d.status = 'pending' AND d.deleted_at IS NULL
       ORDER BY d.detected_at DESC
       ''',
@@ -68,6 +69,41 @@ class DetectedRepository {
                   r.read<int>('detected_at') * 1000),
             ),
         ]);
+  }
+
+  /// Mencari dompet aktif yang cocok dengan `packageName` bank secara otomatis.
+  /// Mengutamakan dompet Parent (`parentId == null`).
+  Future<String?> resolveWalletIdForPackage(String packageName) async {
+    final activeWallets = await (_db.select(_db.wallets)
+          ..where((w) => w.deletedAt.isNull()))
+        .get();
+    if (activeWallets.isEmpty) return null;
+
+    // 1. Cek jika ada pemetaan manual yang masih aktif dan dompetnya masih ada.
+    final sources = await getEnabledSources();
+    final mapped =
+        sources.where((s) => s.packageName == packageName).firstOrNull;
+    if (mapped != null &&
+        activeWallets.any((w) => w.id == mapped.walletId)) {
+      return mapped.walletId;
+    }
+
+    // 2. Auto-match berdasarkan nama bank dari packageName.
+    final bankLabel = bankLabelForPackage(packageName);
+    if (bankLabel == null) return null;
+
+    final matchedParents = activeWallets
+        .where((w) =>
+            w.parentId == null && doesWalletMatchBank(w.name, bankLabel))
+        .toList();
+    if (matchedParents.isNotEmpty) return matchedParents.first.id;
+
+    final matchedAny = activeWallets
+        .where((w) => doesWalletMatchBank(w.name, bankLabel))
+        .toList();
+    if (matchedAny.isNotEmpty) return matchedAny.first.id;
+
+    return null;
   }
 
   /// Jendela waktu untuk menganggap dua notifikasi identik sebagai duplikat.
@@ -91,11 +127,13 @@ class DetectedRepository {
       final dup = await _db.customSelect(
         'SELECT 1 FROM detected_transactions '
         'WHERE source_package IS ? AND amount = ? AND type = ? '
+        'AND merchant IS ? '
         'AND deleted_at IS NULL AND detected_at BETWEEN ? AND ? LIMIT 1',
         variables: [
           Variable<String>(sourcePackage),
           Variable.withReal(amount),
           Variable.withString(type),
+          Variable<String>(merchant),
           Variable.withInt(t - _dupWindowSeconds),
           Variable.withInt(t + _dupWindowSeconds),
         ],
@@ -178,6 +216,16 @@ class DetectedRepository {
     await (_db.update(_db.detectedTransactions)..where((d) => d.id.equals(id)))
         .write(DetectedTransactionsCompanion(
       walletId: Value(walletId),
+      updatedAt: Value(DateTime.now()),
+      syncStatus: const Value('dirty'),
+    ));
+  }
+
+  /// Ubah jenis (income/expense) transaksi terdeteksi bila hasil deteksi salah.
+  Future<void> changeType(String id, String type) async {
+    await (_db.update(_db.detectedTransactions)..where((d) => d.id.equals(id)))
+        .write(DetectedTransactionsCompanion(
+      type: Value(type),
       updatedAt: Value(DateTime.now()),
       syncStatus: const Value('dirty'),
     ));

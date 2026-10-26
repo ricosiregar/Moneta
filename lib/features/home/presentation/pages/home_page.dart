@@ -369,7 +369,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
                       borderRadius: BorderRadius.circular(18),
                       clipBehavior: Clip.antiAlias,
                       child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
+                        child: AppDropdownButton<String>(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 14,
                             vertical: 4,
@@ -607,7 +607,7 @@ class _DashboardBodyState extends State<_DashboardBody> {
                       borderRadius: BorderRadius.circular(18),
                       clipBehavior: Clip.antiAlias,
                       child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
+                        child: AppDropdownButton<String>(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 14,
                             vertical: 4,

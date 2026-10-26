@@ -1,16 +1,16 @@
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:Moneta/core/network/error/failures.dart';
-import 'package:Moneta/features/categories/domain/entities/category_entity.dart';
-import 'package:Moneta/features/categories/domain/repositories/category_repository.dart';
-import 'package:Moneta/features/categories/domain/usecases/category_usecases.dart';
-import 'package:Moneta/features/categories/presentation/cubit/categories_cubit.dart';
-import 'package:Moneta/features/categories/presentation/cubit/categories_state.dart';
+import 'package:moneta/core/network/error/failures.dart';
+import 'package:moneta/features/categories/domain/entities/category_entity.dart';
+import 'package:moneta/features/categories/domain/repositories/category_repository.dart';
+import 'package:moneta/features/categories/domain/usecases/category_usecases.dart';
+import 'package:moneta/features/categories/presentation/cubit/categories_cubit.dart';
+import 'package:moneta/features/categories/presentation/cubit/categories_state.dart';
 
 import 'support/test_helpers.dart';
-import 'package:Moneta/core/database/finance_repository.dart';
-import 'package:Moneta/features/categories/data/datasources/category_local_datasource.dart';
-import 'package:Moneta/features/categories/data/repositories/category_repository_impl.dart';
+import 'package:moneta/core/database/finance_repository.dart';
+import 'package:moneta/features/categories/data/datasources/category_local_datasource.dart';
+import 'package:moneta/features/categories/data/repositories/category_repository_impl.dart';
 
 class _FailingRepo implements CategoryRepository {
   @override

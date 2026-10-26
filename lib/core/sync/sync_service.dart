@@ -159,7 +159,7 @@ class SyncService {
       _failed = 0;
       _pushedDetectedIds.clear();
       _maxSeenSyncedAt = null;
-      final cursor = _pullCursor();
+      final cursor = await _pullCursor();
 
       var pulled = 0;
       for (final spec in _tables) {
@@ -213,11 +213,28 @@ class SyncService {
   /// synced_at (waktu server) terbesar yang terlihat pada pull sync ini.
   DateTime? _maxSeenSyncedAt;
 
-  String? _pullCursor() {
+  Future<String?> _pullCursor() async {
     final raw = _prefs.getString(_cursorKey);
     if (raw == null) return null;
     final t = DateTime.tryParse(raw);
     if (t == null) return null;
+
+    // Bila Android Auto Backup memulihkan SharedPreferences saat reinstall APK
+    // tetapi database SQLite lokal masih kosong (belum ada baris synced),
+    // hapus cursor lama agar dilakukan full pull dari server.
+    final hasSyncedData = await _db
+        .customSelect(
+          "SELECT 1 FROM categories WHERE sync_status = 'synced' "
+          'UNION ALL '
+          "SELECT 1 FROM wallets WHERE sync_status = 'synced' "
+          'LIMIT 1',
+        )
+        .getSingleOrNull();
+    if (hasSyncedData == null) {
+      await _prefs.remove(_cursorKey);
+      return null;
+    }
+
     return t.subtract(_cursorOverlap).toUtc().toIso8601String();
   }
 

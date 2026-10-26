@@ -1,8 +1,8 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:Moneta/core/database/app_database.dart';
-import 'package:Moneta/core/database/detected_repository.dart';
-import 'package:Moneta/core/database/wallet_repository.dart';
+import 'package:moneta/core/database/app_database.dart';
+import 'package:moneta/core/database/detected_repository.dart';
+import 'package:moneta/core/database/wallet_repository.dart';
 
 import 'support/test_helpers.dart';
 

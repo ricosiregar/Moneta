@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import 'app_buttons.dart';
 
-/// Tactile White Card matching MonTrack design specification:
+/// Tactile White Card matching Moneta design specification:
 /// Compact, pure white, large controlled corner radius (24px),
 /// subtle border (slate-100/80), very soft shadow.
 class AppCard extends StatelessWidget {
@@ -33,11 +33,7 @@ class AppCard extends StatelessWidget {
     final decoration = BoxDecoration(
       color: backgroundColor ?? AppColors.surface,
       borderRadius: BorderRadius.circular(borderRadius),
-      border: border ??
-          Border.all(
-            color: AppColors.border,
-            width: 1,
-          ),
+      border: border ?? Border.all(color: AppColors.border, width: 1),
       boxShadow: boxShadow ?? AppColors.cardShadow,
     );
 
@@ -54,10 +50,7 @@ class AppCard extends StatelessWidget {
             onTap: onTap,
             borderRadius: r,
             customBorder: RoundedRectangleBorder(borderRadius: r),
-            child: Padding(
-              padding: padding ?? EdgeInsets.zero,
-              child: child,
-            ),
+            child: Padding(padding: padding ?? EdgeInsets.zero, child: child),
           ),
         ),
       );
@@ -112,17 +105,14 @@ class AppGlassCard extends StatelessWidget {
           filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
           child: Container(
             decoration: BoxDecoration(
-              gradient: gradient ??
-                  (tintColor != null
-                      ? null
-                      : AppColors.glassCardGradient),
+              gradient:
+                  gradient ??
+                  (tintColor != null ? null : AppColors.glassCardGradient),
               color: tintColor,
               borderRadius: r,
-              border: border ??
-                  Border.all(
-                    color: AppColors.glassBorder,
-                    width: 1.2,
-                  ),
+              border:
+                  border ??
+                  Border.all(color: AppColors.glassBorder, width: 1.2),
             ),
             child: CustomPaint(
               painter: RRectInsetGlassPainter(

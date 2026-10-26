@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:Moneta/core/database/finance_exception.dart';
-import 'package:Moneta/core/network/error/failures.dart';
-import 'package:Moneta/core/utils/app_error_formatter.dart';
+import 'package:moneta/core/database/finance_exception.dart';
+import 'package:moneta/core/network/error/failures.dart';
+import 'package:moneta/core/utils/app_error_formatter.dart';
 import 'package:dartz/dartz.dart';
 
 import '../../domain/entities/detected_transaction_entity.dart';
@@ -59,6 +59,10 @@ class NotificationRepositoryImpl implements NotificationRepository {
   @override
   Future<Either<Failure, void>> changeWallet(String id, String walletId) =>
       _guard(() => localDataSource.changeWallet(id, walletId));
+
+  @override
+  Future<Either<Failure, void>> changeType(String id, String type) =>
+      _guard(() => localDataSource.changeType(id, type));
 
   @override
   Stream<Either<Failure, List<NotificationSourceEntity>>> watchSources() =>

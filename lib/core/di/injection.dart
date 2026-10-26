@@ -255,6 +255,7 @@ Future<void> configureDependencies() async {
   useCase(IgnoreDetectedUseCase.new);
   useCase(IgnoreAllDetectedUseCase.new);
   useCase(ChangeDetectedWalletUseCase.new);
+  useCase(ChangeDetectedTypeUseCase.new);
   useCase(WatchSourcesUseCase.new);
   useCase(UpsertSourceUseCase.new);
   useCase(SetSourceEnabledUseCase.new);
@@ -270,6 +271,7 @@ Future<void> configureDependencies() async {
         ignore: getIt<IgnoreDetectedUseCase>(),
         ignoreAll: getIt<IgnoreAllDetectedUseCase>(),
         changeWallet: getIt<ChangeDetectedWalletUseCase>(),
+        changeType: getIt<ChangeDetectedTypeUseCase>(),
       ),
     );
   }

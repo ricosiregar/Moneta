@@ -1,13 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:Moneta/core/backup/backup_service.dart';
-import 'package:Moneta/core/database/app_database.dart';
-import 'package:Moneta/core/database/wallet_repository.dart';
-import 'package:Moneta/core/network/error/failures.dart';
-import 'package:Moneta/features/profile/data/datasources/profile_local_datasource.dart';
-import 'package:Moneta/features/profile/data/repositories/profile_repository_impl.dart';
-import 'package:Moneta/features/profile/domain/usecases/profile_usecases.dart';
-import 'package:Moneta/features/profile/presentation/cubit/profile_cubit.dart';
+import 'package:moneta/core/backup/backup_service.dart';
+import 'package:moneta/core/database/app_database.dart';
+import 'package:moneta/core/database/wallet_repository.dart';
+import 'package:moneta/core/network/error/failures.dart';
+import 'package:moneta/features/profile/data/datasources/profile_local_datasource.dart';
+import 'package:moneta/features/profile/data/repositories/profile_repository_impl.dart';
+import 'package:moneta/features/profile/domain/usecases/profile_usecases.dart';
+import 'package:moneta/features/profile/presentation/cubit/profile_cubit.dart';
 
 import 'support/test_helpers.dart';
 

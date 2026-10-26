@@ -1,7 +1,7 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:Moneta/core/database/app_database.dart';
-import 'package:Moneta/core/database/wallet_repository.dart';
+import 'package:moneta/core/database/app_database.dart';
+import 'package:moneta/core/database/wallet_repository.dart';
 
 void main() {
   late AppDatabase db;

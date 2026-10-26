@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import '../theme/app_colors.dart';
 import 'app_buttons.dart';
 
-/// Modern Pastel Aurora Header matching MonTrack design rules:
+/// Modern Pastel Aurora Header matching Moneta design rules:
 /// - Aurora gradient background (mint/sky/blue)
 /// - Top utility buttons (Avatar, Search, Sync/Refresh)
 /// - Date / eyebrow text
@@ -26,9 +26,14 @@ class AuroraHeader extends StatelessWidget {
   /// Small glass chips shown under the headline (budget / piggo summary).
   final List<String>? badges;
 
+  /// Custom header content (e.g. for auth screens) rendered inside the
+  /// AuroraHeader gradient container.
+  final Widget? child;
+  final EdgeInsetsGeometry? padding;
+
   const AuroraHeader({
     super.key,
-    required this.userName,
+    this.userName = '',
     this.onProfileTap,
     this.onSearchTap,
     this.onSyncTap,
@@ -38,6 +43,8 @@ class AuroraHeader extends StatelessWidget {
     this.eyebrow,
     this.headline,
     this.badges,
+    this.child,
+    this.padding,
   });
 
   String get _greeting {
@@ -95,104 +102,106 @@ class AuroraHeader extends StatelessWidget {
             SafeArea(
               bottom: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ── Tabs (left) + reload (right) ──
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                padding: padding ?? const EdgeInsets.fromLTRB(20, 8, 20, 40),
+                child:
+                    child ??
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        leading ?? const SizedBox(height: 44),
-                        if (onSyncTap != null)
-                          AppGlassIconButton(
-                            onTap: onSyncTap,
-                            tooltip: 'Sinkronisasi Data',
-                            child: AnimatedRotation(
-                              turns: isSyncing ? 1.0 : 0.0,
-                              duration: const Duration(seconds: 1),
-                              child: Icon(
-                                Icons.sync_rounded,
-                                size: 20,
-                                color: isSyncing
-                                    ? AppColors.accentBlue
-                                    : AppColors.inkPrimary,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 22),
-
-                    // Fixed-height text block so the header never jumps
-                    // between tabs.
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(minHeight: 74),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          Text(
-                            eyebrow ?? _dateString,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.2,
-                              color: AppColors.inkSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          if (headline != null)
-                            Text(
-                              headline!,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.5,
-                                color: AppColors.inkPrimary,
-                              ),
-                            )
-                          else
-                            Text.rich(
-                              TextSpan(
-                                text: '$_greeting, ',
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: -0.4,
-                                  color: AppColors.inkPrimary,
+                        // ── Tabs (left) + reload (right) ──
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            leading ?? const SizedBox(height: 44),
+                            if (onSyncTap != null)
+                              AppGlassIconButton(
+                                onTap: onSyncTap,
+                                tooltip: 'Sinkronisasi Data',
+                                child: AnimatedRotation(
+                                  turns: isSyncing ? 1.0 : 0.0,
+                                  duration: const Duration(seconds: 1),
+                                  child: Icon(
+                                    Icons.sync_rounded,
+                                    size: 20,
+                                    color: isSyncing
+                                        ? AppColors.accentBlue
+                                        : AppColors.inkPrimary,
+                                  ),
                                 ),
-                                children: [
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 22),
+
+                        // Fixed-height text block so the header never jumps
+                        // between tabs.
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 74),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: [
+                              Text(
+                                eyebrow ?? _dateString,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.2,
+                                  color: AppColors.inkSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              if (headline != null)
+                                Text(
+                                  headline!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.5,
+                                    color: AppColors.inkPrimary,
+                                  ),
+                                )
+                              else
+                                Text.rich(
                                   TextSpan(
-                                    text: name,
+                                    text: '$_greeting, ',
                                     style: const TextStyle(
                                       fontSize: 20,
-                                      fontWeight: FontWeight.w800,
+                                      fontWeight: FontWeight.w600,
                                       letterSpacing: -0.4,
                                       color: AppColors.inkPrimary,
                                     ),
+                                    children: [
+                                      TextSpan(
+                                        text: name,
+                                        style: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: -0.4,
+                                          color: AppColors.inkPrimary,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          if (headline != null && badges != null) ...[
-                            const SizedBox(height: 6),
-                            Wrap(
-                              spacing: 6,
-                              children: [
-                                for (final b in badges!) _HeaderBadge(b),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              if (headline != null && badges != null) ...[
+                                const SizedBox(height: 6),
+                                Wrap(
+                                  spacing: 6,
+                                  children: [
+                                    for (final b in badges!) _HeaderBadge(b),
+                                  ],
+                                ),
                               ],
-                            ),
-                          ],
-                        ],
-                      ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
               ),
             ),
           ],

@@ -162,17 +162,29 @@ class _MyAppState extends State<MyApp> {
   }
 
   /// Saat user login: pastikan data lokal milik user ini (hapus bila milik
-  /// akun lain), lalu seed kategori bawaan.
+  /// akun lain), tarik data dari cloud (sync) terlebih dahulu agar data lama
+  /// otomatis kembali saat install ulang APK, lalu seed kategori bawaan bila
+  /// tabel kategori masih kosong (akun baru / sedang offline).
   Future<void> _onAuthState(AuthState s) async {
     final id = s.user?.id;
     if (s.status != AuthStatus.authenticated || id == null || id.isEmpty) {
+      if (s.status == AuthStatus.unauthenticated) {
+        _boundUserId = null;
+      }
       return;
     }
     if (id == _boundUserId) return;
     _boundUserId = id;
     try {
-      await getIt<SyncService>().bindUser(id);
-      await getIt<FinanceRepository>().seedDefaultCategories(userId: id);
+      final syncService = getIt<SyncService>();
+      final financeRepo = getIt<FinanceRepository>();
+      await syncService.bindUser(id);
+      try {
+        await syncService.sync();
+      } catch (e) {
+        debugPrint('Auto-sync saat login tertunda: $e');
+      }
+      await financeRepo.seedDefaultCategories(userId: id);
     } catch (e) {
       _boundUserId = null; // coba lagi pada perubahan state berikutnya
       debugPrint('Gagal menyiapkan data lokal: $e');

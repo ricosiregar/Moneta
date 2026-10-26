@@ -45,11 +45,10 @@ class NotificationCaptureService {
     // fitur dimatikan), dan ikuti perubahan sumber/saklar selama app hidup.
     await syncAllowedPackages();
     _configSub ??= _repo.watchSources().listen((_) => syncAllowedPackages());
-    if (_sub != null) return;
     if (!await _repo.isCaptureEnabled()) return;
     if (!await NotificationListenerService.isPermissionGranted()) return;
 
-    _sub = NotificationListenerService.notificationsStream.listen(
+    _sub ??= NotificationListenerService.notificationsStream.listen(
       _handle,
       onError: (Object e) => debugPrint('Notification stream error: $e'),
     );
@@ -100,7 +99,10 @@ class NotificationCaptureService {
     try {
       final enabled = await _repo.isCaptureEnabled();
       final pkgs = enabled
-          ? [for (final s in await _repo.getEnabledSources()) s.packageName]
+          ? <String>{
+              for (final k in knownBankPackages) k.$2,
+              for (final s in await _repo.getEnabledSources()) s.packageName,
+            }.toList()
           : <String>[];
       await _queue.invokeMethod<void>('setAllowedPackages', pkgs);
     } catch (e) {
@@ -168,14 +170,17 @@ class NotificationCaptureService {
 
     final sources = await _repo.getEnabledSources();
     final source = sources.where((s) => s.packageName == pkg).firstOrNull;
-    if (source == null) return;
+    final isKnownBank = bankLabelForPackage(pkg) != null;
+    if (source == null && !isKnownBank) return;
 
     final parsed = parseBankNotification(
       e.title,
       e.content,
-      parserKey: source.parserKey,
+      parserKey: source?.parserKey ?? 'generic',
     );
     if (parsed == null) return;
+
+    final walletId = await _repo.resolveWalletIdForPackage(pkg);
 
     // Event live bisa datang tanpa timestamp (0). Pakai waktu sekarang agar
     // fingerprint tidak bertabrakan antar notifikasi berbeda; duplikat
@@ -188,7 +193,7 @@ class NotificationCaptureService {
     await _repo.addDetected(
       // Stabil untuk notifikasi yang sama (tidak ganda saat dibaca ulang).
       fingerprint: '$pkg|$ts|${e.id}|${parsed.amount}|${parsed.type}',
-      walletId: source.walletId,
+      walletId: walletId,
       sourcePackage: pkg,
       amount: parsed.amount,
       type: parsed.type,

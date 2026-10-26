@@ -1,14 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:Moneta/core/database/app_database.dart';
-import 'package:Moneta/core/database/finance_repository.dart';
-import 'package:Moneta/core/database/wallet_repository.dart';
-import 'package:Moneta/features/analytic/data/datasources/analytics_local_datasource.dart';
-import 'package:Moneta/features/analytic/data/repositories/analytics_repository_impl.dart';
-import 'package:Moneta/features/analytic/domain/usecases/analytics_usecases.dart';
-import 'package:Moneta/features/analytic/presentation/cubit/analytics_cubit.dart';
-import 'package:Moneta/features/wallets/data/datasources/wallets_local_datasource.dart';
-import 'package:Moneta/features/wallets/data/repositories/wallets_repository_impl.dart';
-import 'package:Moneta/features/wallets/domain/usecases/wallet_usecases.dart';
+import 'package:moneta/core/database/app_database.dart';
+import 'package:moneta/core/database/finance_repository.dart';
+import 'package:moneta/core/database/wallet_repository.dart';
+import 'package:moneta/features/analytic/data/datasources/analytics_local_datasource.dart';
+import 'package:moneta/features/analytic/data/repositories/analytics_repository_impl.dart';
+import 'package:moneta/features/analytic/domain/usecases/analytics_usecases.dart';
+import 'package:moneta/features/analytic/presentation/cubit/analytics_cubit.dart';
+import 'package:moneta/features/wallets/data/datasources/wallets_local_datasource.dart';
+import 'package:moneta/features/wallets/data/repositories/wallets_repository_impl.dart';
+import 'package:moneta/features/wallets/domain/usecases/wallet_usecases.dart';
 
 import 'support/test_helpers.dart';
 

@@ -1,5 +1,5 @@
-import 'package:Moneta/core/network/error/failures.dart';
-import 'package:Moneta/core/utils/failure_guard.dart';
+import 'package:moneta/core/network/error/failures.dart';
+import 'package:moneta/core/utils/failure_guard.dart';
 import 'package:dartz/dartz.dart';
 
 import '../../domain/entities/auto_schedule_entity.dart';

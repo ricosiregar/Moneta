@@ -1,4 +1,4 @@
-import 'package:Moneta/core/database/wallet_repository.dart';
+import 'package:moneta/core/database/wallet_repository.dart';
 
 import '../../domain/entities/ecosystem_child_entity.dart';
 import '../models/allocation_model.dart';

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:Moneta/core/components/floating_bottom_nav.dart';
-import 'package:Moneta/core/components/fun_widgets.dart';
-import 'package:Moneta/core/theme/app_colors.dart';
+import 'package:moneta/core/components/floating_bottom_nav.dart';
+import 'package:moneta/core/components/fun_widgets.dart';
+import 'package:moneta/core/theme/app_colors.dart';
 
 void main() {
   test('AppColors canvas should be 0xFFF8FAFC', () {

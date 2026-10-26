@@ -92,6 +92,10 @@ class _TransactionSheetState extends State<TransactionSheet> {
       firstDate: DateTime(2020),
       lastDate: DateTime(2035),
       barrierColor: AppColors.glassScrim,
+      fieldHintText: 'dd/mm/yyyy',
+      fieldLabelText: 'Masukkan tanggal',
+      errorFormatText: 'Format tidak valid (dd/mm/yyyy)',
+      errorInvalidText: 'Tanggal di luar rentang',
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -109,7 +113,7 @@ class _TransactionSheetState extends State<TransactionSheet> {
               ),
             ),
           ),
-          child: child!,
+          child: AppDatePickerWrapper(child: child!),
         );
       },
     );
@@ -290,7 +294,7 @@ class _TransactionSheetState extends State<TransactionSheet> {
                   borderRadius: BorderRadius.circular(16),
                   clipBehavior: Clip.antiAlias,
                   child: DropdownButtonHideUnderline(
-                    child: DropdownButton<int>(
+                    child: AppDropdownButton<int>(
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       value: _wallet.clamp(0, _wallets.length - 1),
                       isExpanded: true,
@@ -356,7 +360,7 @@ class _TransactionSheetState extends State<TransactionSheet> {
                 borderRadius: BorderRadius.circular(16),
                 clipBehavior: Clip.antiAlias,
                 child: DropdownButtonHideUnderline(
-                  child: DropdownButton<int>(
+                  child: AppDropdownButton<int>(
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     value:
                         cats.isEmpty ? null : _category.clamp(0, cats.length - 1),

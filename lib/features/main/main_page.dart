@@ -13,7 +13,7 @@ import '../transactions/presentation/pages/transactions_page.dart';
 /// MainPage manages persistent Floating Island Bottom Navigation + FAB
 /// with IndexedStack + BottomNavCubit.
 ///
-/// Matches MonTrack architecture:
+/// Matches Moneta architecture:
 /// - Tab 0: Beranda (Home / Dashboard)
 /// - Tab 1: Aktivitas (Transactions)
 /// - Tab 2: Analitik (Analytics)

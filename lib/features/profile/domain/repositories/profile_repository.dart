@@ -1,4 +1,4 @@
-import 'package:Moneta/core/network/error/failures.dart';
+import 'package:moneta/core/network/error/failures.dart';
 import 'package:dartz/dartz.dart';
 
 import '../entities/cached_profile_entity.dart';

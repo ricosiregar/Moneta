@@ -1,4 +1,4 @@
-import 'package:Moneta/core/network/error/failures.dart';
+import 'package:moneta/core/network/error/failures.dart';
 import 'package:dartz/dartz.dart';
 
 import '../entities/detected_transaction_entity.dart';
@@ -14,6 +14,7 @@ abstract class NotificationRepository {
   Future<Either<Failure, void>> ignore(String id);
   Future<Either<Failure, void>> ignoreAll();
   Future<Either<Failure, void>> changeWallet(String id, String walletId);
+  Future<Either<Failure, void>> changeType(String id, String type);
 
   // ── Sumber notifikasi ──
   Stream<Either<Failure, List<NotificationSourceEntity>>> watchSources();

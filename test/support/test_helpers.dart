@@ -1,6 +1,6 @@
 import 'package:drift/native.dart';
-import 'package:Moneta/core/database/app_database.dart';
-import 'package:Moneta/core/database/wallet_repository.dart';
+import 'package:moneta/core/database/app_database.dart';
+import 'package:moneta/core/database/wallet_repository.dart';
 
 /// Database in-memory baru (skema + index + auto_schedules lewat beforeOpen).
 AppDatabase newTestDb() => AppDatabase.forTesting(NativeDatabase.memory());
