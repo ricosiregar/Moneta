@@ -151,6 +151,38 @@ void main() {
       expect(parseBankNotification('Info', 'Transfer masuk berhasil'), isNull);
     });
 
+    test('iklan Jago "cashback ... IDR 5 million" diabaikan (bug 5 perak)', () {
+      expect(
+        parseBankNotification(
+          'Diversify beyond stocks',
+          'Get cashback on your first forex purchase of IDR 5 million or more',
+        ),
+        isNull,
+      );
+    });
+
+    test('iklan Jago diskon 20% diabaikan', () {
+      expect(
+        parseBankNotification(
+          'Great food, better prices',
+          'Head to Ta Wan and enjoy 20% DISCOUNT!',
+        ),
+        isNull,
+      );
+    });
+
+    test('nominal berpengali ("IDR 5 million") tidak dibaca 5 rupiah', () {
+      // Tanpa kata iklan sekalipun, angka berpengali tidak boleh jadi 5.
+      expect(
+        parseBankNotification('Info', 'Purchase of IDR 5 million recorded'),
+        isNull,
+      );
+      expect(
+        parseBankNotification('Info', 'Pembayaran Rp2 juta berhasil'),
+        isNull,
+      );
+    });
+
     test('tanpa kata kunci -> null', () {
       expect(parseBankNotification('Info', 'Saldo kamu Rp500.000'), isNull);
     });

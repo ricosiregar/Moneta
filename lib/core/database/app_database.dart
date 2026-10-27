@@ -141,6 +141,16 @@ class AppDatabase extends _$AppDatabase {
   /// [FinanceException] bila dompet tidak ditemukan atau saldo kurang.
   /// Panggil di dalam `transaction()` agar pengecekan dan penulisan atomik.
   Future<void> requireBalance(String walletId, double needed) async {
+    final balance = await walletBalance(walletId);
+    if (balance == null) throw const FinanceException('Dompet tidak ditemukan');
+    // Toleransi 0.005 untuk galat pembulatan floating point.
+    if (balance + 0.005 < needed) {
+      throw const FinanceException('Saldo dompet tidak mencukupi');
+    }
+  }
+
+  /// Saldo terkini [walletId] dari ledger; null bila dompet tidak ada/terhapus.
+  Future<double?> walletBalance(String walletId) async {
     final row = await customSelect(
       '''
       SELECT w.opening_balance
@@ -166,12 +176,8 @@ class AppDatabase extends _$AppDatabase {
       ''',
       variables: [Variable.withString(walletId)],
     ).getSingleOrNull();
-    if (row == null) throw const FinanceException('Dompet tidak ditemukan');
-    final balance = row.read<double>('balance');
-    // Toleransi 0.005 untuk galat pembulatan floating point.
-    if (balance + 0.005 < needed) {
-      throw const FinanceException('Saldo dompet tidak mencukupi');
-    }
+    if (row == null) return null;
+    return row.read<double>('balance');
   }
 
   /// Saldo tiap wallet:

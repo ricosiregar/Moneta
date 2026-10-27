@@ -10,7 +10,7 @@ abstract class NotificationRepository {
   Stream<Either<Failure, List<DetectedTransactionEntity>>> watchPending();
 
   /// true bila transaksi berhasil dibuat; false bila sudah diproses/tidak valid.
-  Future<Either<Failure, bool>> record(String id);
+  Future<Either<Failure, bool>> record(String id, {String? categoryId});
   Future<Either<Failure, void>> ignore(String id);
   Future<Either<Failure, void>> ignoreAll();
   Future<Either<Failure, void>> changeWallet(String id, String walletId);

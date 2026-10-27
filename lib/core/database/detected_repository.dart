@@ -159,7 +159,8 @@ class DetectedRepository {
   /// "Catat": jadikan transaksi sungguhan. Hanya entri `pending` yang diproses
   /// (cek dilakukan di dalam transaksi supaya tap ganda tidak menggandakan).
   /// Mengembalikan true bila transaksi berhasil dibuat.
-  Future<bool> record(String id) async {
+  /// [categoryId] opsional: kategori yang dipilih user saat mencatat.
+  Future<bool> record(String id, {String? categoryId}) async {
     return _db.transaction(() async {
       final row = await (_db.select(_db.detectedTransactions)
             ..where((d) => d.id.equals(id)))
@@ -176,6 +177,7 @@ class DetectedRepository {
             TransactionsCompanion.insert(
               id: txId,
               walletId: row.walletId!,
+              categoryId: Value(categoryId),
               title: row.merchant ?? 'Transaksi terdeteksi',
               amount: row.amount,
               type: row.type,

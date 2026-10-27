@@ -8,10 +8,14 @@ import '../../../../core/components/app_buttons.dart'
 import '../../../../core/components/app_glass_dialog.dart';
 import '../../../../core/components/app_glass_sheet.dart';
 import '../../../../core/components/app_toast.dart';
+import '../../../../core/components/category_icons.dart';
 import '../../../../core/components/fun_widgets.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/usecase.dart';
+import '../../../categories/domain/entities/category_entity.dart';
+import '../../../categories/domain/usecases/category_usecases.dart';
+import '../../../categories/presentation/pages/categories_manage_page.dart';
 import '../../../wallets/domain/entities/wallet_entity.dart';
 import '../../../wallets/domain/usecases/wallet_usecases.dart';
 import '../../../wallets/presentation/pages/wallet_form_page.dart';
@@ -258,6 +262,189 @@ class _DetectedCardState extends State<DetectedCard> {
     );
   }
 
+  /// Sheet pencatatan: ringkasan + pilih kategori (seperti input manual).
+  /// Mengembalikan id kategori, '' bila tanpa kategori, atau null bila batal.
+  Future<String?> _pickCategory(
+    DetectedTransactionEntity d,
+    WalletEntity wallet,
+  ) async {
+    final isIncome = d.type == DetectedType.income;
+    final type = isIncome ? CategoryType.income : CategoryType.expense;
+
+    Future<List<CategoryEntity>> load() async {
+      final r = await getIt<WatchCategoriesUseCase>()(type).first;
+      return r
+          .getOrElse(() => const <CategoryEntity>[])
+          .where((c) => c.type == type)
+          .toList();
+    }
+
+    var cats = await load();
+    if (!mounted) return null;
+    String? selectedId = cats.isEmpty ? null : cats.first.id;
+    const manageKey = '__manage__';
+
+    return AppGlassSheet.show<String>(
+      context: context,
+      builder: (ctx) => AppGlassSheet(
+        title: 'Catat Transaksi',
+        subtitle:
+            '${isIncome ? 'Pemasukan' : 'Pengeluaran'} ${fmtRp(d.amount)}'
+            '${d.merchant != null ? ' (${d.merchant})' : ''} ke dompet "${wallet.name}"',
+        child: StatefulBuilder(
+          builder: (context, setSheet) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const FunLabel('Kategori'),
+              const SizedBox(height: 8),
+              Container(
+                height: 48,
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: glassFill(context),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    width: 1.2,
+                  ),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                  clipBehavior: Clip.antiAlias,
+                  child: DropdownButtonHideUnderline(
+                    child: AppDropdownButton<String>(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      value: selectedId,
+                      isExpanded: true,
+                      borderRadius: BorderRadius.circular(16),
+                      dropdownColor: Colors.white.withValues(alpha: 0.96),
+                      icon: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: AppColors.inkSecondary,
+                      ),
+                      hint: const Text(
+                        'Pilih kategori...',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.inkMuted,
+                        ),
+                      ),
+                      items: [
+                        for (final c in cats)
+                          DropdownMenuItem<String>(
+                            value: c.id,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  categoryIcon(c.icon),
+                                  size: 18,
+                                  color: AppColors.accentBlue,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    c.name,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.inkPrimary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        const DropdownMenuItem<String>(
+                          value: manageKey,
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.add_circle_outline_rounded,
+                                size: 18,
+                                color: AppColors.accentBlue,
+                              ),
+                              SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  '+ Tambah / Kelola Kategori',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.accentBlue,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      onChanged: (val) async {
+                        if (val == manageKey) {
+                          await Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => CategoriesManagePage(
+                                initialTab: isIncome ? 1 : 0,
+                              ),
+                            ),
+                          );
+                          cats = await load();
+                          if (!context.mounted) return;
+                          setSheet(() {
+                            if (!cats.any((c) => c.id == selectedId)) {
+                              selectedId = cats.isEmpty ? null : cats.first.id;
+                            }
+                          });
+                        } else if (val != null) {
+                          setSheet(() => selectedId = val);
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              GestureDetector(
+                onTap: () => Navigator.pop(ctx, selectedId ?? ''),
+                child: Container(
+                  height: 50,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    gradient: AppColors.primaryButtonGradient,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: const Color(0x66FFFFFF),
+                      width: 1.2,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x332563EB),
+                        blurRadius: 16,
+                        offset: Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: const Text(
+                    'Ya, Catat',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _handleRecord(DetectedTransactionEntity d) async {
     var wallets = (await getIt<GetWalletsUseCase>()(
       const NoParams(),
@@ -311,21 +498,9 @@ class _DetectedCardState extends State<DetectedCard> {
       chosenWallet = picked;
     }
 
-    // Konfirmasi pop-up sebelum mencatat
-    final txTypeLabel = d.type == DetectedType.income
-        ? 'pemasukan'
-        : 'pengeluaran';
-    final confirmOk = await AppGlassDialog.show(
-      context: context,
-      icon: Icons.edit_square,
-      title: 'Catat Transaksi?',
-      message:
-          'Apakah kamu yakin ingin mencatat $txTypeLabel sebesar ${fmtRp(d.amount)}'
-          '${d.merchant != null ? ' (${d.merchant})' : ''} ke dompet "${chosenWallet.name}"?',
-      confirmLabel: 'Ya, Catat',
-      cancelLabel: 'Batal',
-    );
-    if (confirmOk != true || !mounted) return;
+    // Pilih kategori + konfirmasi sebelum mencatat (seperti input manual).
+    final categoryId = await _pickCategory(d, chosenWallet);
+    if (categoryId == null || !mounted) return;
 
     if (d.walletId != chosenWallet.id) {
       final cwResult = await _cubit.changeWallet(d.id, chosenWallet.id);
@@ -336,7 +511,10 @@ class _DetectedCardState extends State<DetectedCard> {
       }
     }
 
-    final r = await _cubit.record(d.id);
+    final r = await _cubit.record(
+      d.id,
+      categoryId: categoryId.isEmpty ? null : categoryId,
+    );
     if (!mounted) return;
     r.fold(
       (f) => _report(f.message),

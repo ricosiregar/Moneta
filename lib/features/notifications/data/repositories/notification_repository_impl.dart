@@ -45,8 +45,8 @@ class NotificationRepositoryImpl implements NotificationRepository {
           (rows) => [for (final r in rows) r.toEntity()]);
 
   @override
-  Future<Either<Failure, bool>> record(String id) =>
-      _guard(() => localDataSource.record(id));
+  Future<Either<Failure, bool>> record(String id, {String? categoryId}) =>
+      _guard(() => localDataSource.record(id, categoryId: categoryId));
 
   @override
   Future<Either<Failure, void>> ignore(String id) =>

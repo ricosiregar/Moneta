@@ -118,16 +118,61 @@ class WalletRepository {
   }) async {
     final now = DateTime.now();
     final walletId = id ?? _uuid.v4();
-    await _db.into(_db.wallets).insertOnConflictUpdate(
-          WalletsCompanion(
-            id: Value(walletId),
-            name: Value(name.trim()),
-            type: Value(type),
-            parentId: Value(parentId),
-            purpose: Value(
-                (purpose == null || purpose.trim().isEmpty) ? null : purpose.trim()),
-            isIncomeSource: Value(isIncomeSource),
-            openingBalance: Value(openingBalance),
+    await _db.transaction(() async {
+      final existing = await _existingWallet(id);
+      await _db.into(_db.wallets).insertOnConflictUpdate(
+            WalletsCompanion(
+              id: Value(walletId),
+              name: Value(name.trim()),
+              type: Value(type),
+              parentId: Value(parentId),
+              purpose: Value((purpose == null || purpose.trim().isEmpty)
+                  ? null
+                  : purpose.trim()),
+              isIncomeSource: Value(isIncomeSource),
+              // Dompet yang sudah ada: saldo awal dipertahankan; perubahan saldo
+              // dicatat sebagai transaksi penyesuaian (lihat _adjustBalanceTo).
+              openingBalance:
+                  Value(existing?.openingBalance ?? openingBalance),
+              updatedAt: Value(now),
+              syncStatus: const Value('dirty'),
+            ),
+          );
+      if (existing != null) {
+        await _adjustBalanceTo(walletId, openingBalance, now);
+      }
+    });
+  }
+
+  Future<Wallet?> _existingWallet(String? id) async {
+    if (id == null) return null;
+    return (_db.select(_db.wallets)
+          ..where((w) => w.id.equals(id) & w.deletedAt.isNull()))
+        .getSingleOrNull();
+  }
+
+  /// Samakan saldo dompet dengan [target]. Selisihnya dicatat sebagai transaksi
+  /// pemasukan (saldo naik) atau pengeluaran (saldo turun) bernama
+  /// "Penyesuaian saldo", tanpa kategori (jenisnya bisa diisi belakangan), agar
+  /// tampil di riwayat dan analitik.
+  Future<void> _adjustBalanceTo(
+    String walletId,
+    double target,
+    DateTime now,
+  ) async {
+    final current = await _db.walletBalance(walletId);
+    if (current == null) return;
+    final delta = target - current;
+    if (delta.abs() < 0.005) return;
+    await _db.into(_db.transactions).insert(
+          TransactionsCompanion.insert(
+            id: _uuid.v4(),
+            walletId: walletId,
+            title: 'Penyesuaian saldo',
+            amount: delta.abs(),
+            type: delta > 0 ? 'income' : 'expense',
+            date: Value(now),
+            note: const Value('Perubahan saldo dari pengaturan dompet'),
             updatedAt: Value(now),
             syncStatus: const Value('dirty'),
           ),
@@ -148,6 +193,7 @@ class WalletRepository {
     final now = DateTime.now();
     final walletId = id ?? _uuid.v4();
     await _db.transaction(() async {
+      final existing = await _existingWallet(id);
       await _db.into(_db.wallets).insertOnConflictUpdate(
             WalletsCompanion(
               id: Value(walletId),
@@ -157,11 +203,15 @@ class WalletRepository {
               purpose: Value(
                   (purpose == null || purpose.trim().isEmpty) ? null : purpose.trim()),
               isIncomeSource: Value(isIncomeSource),
-              openingBalance: Value(openingBalance),
+              openingBalance:
+                  Value(existing?.openingBalance ?? openingBalance),
               updatedAt: Value(now),
               syncStatus: const Value('dirty'),
             ),
           );
+      if (existing != null) {
+        await _adjustBalanceTo(walletId, openingBalance, now);
+      }
 
       var order = 1;
       for (final child in ecosystemChildren) {

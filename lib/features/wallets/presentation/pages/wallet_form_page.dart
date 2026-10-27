@@ -67,10 +67,12 @@ class _WalletFormPageState extends State<WalletFormPage> {
   late final _purposeCtrl = TextEditingController(
     text: widget.editing?.purpose ?? '',
   );
+  // Saat edit, kolom ini adalah saldo terkini; selisihnya dicatat sebagai
+  // transaksi "Penyesuaian saldo" (pemasukan/pengeluaran).
   late final _openingCtrl = TextEditingController(
-    text: (widget.editing?.openingBalance ?? 0) == 0
+    text: (widget.editing?.balance ?? 0) == 0
         ? ''
-        : fmtThousands(widget.editing!.openingBalance),
+        : fmtThousands(widget.editing!.balance),
   );
 
   // 'cash' | 'bank' | 'e_wallet'
@@ -326,7 +328,9 @@ class _WalletFormPageState extends State<WalletFormPage> {
                     const SizedBox(height: 20),
 
                     // 3. Saldo Awal
-                    const FunLabel('3. Saldo Awal (Rp)'),
+                    FunLabel(
+                      _isEditing ? '3. Saldo Saat Ini (Rp)' : '3. Saldo Awal (Rp)',
+                    ),
                     const SizedBox(height: 8),
                     _buildOpeningBalanceField(),
 

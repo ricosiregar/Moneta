@@ -17,12 +17,23 @@ class WatchPendingDetectedUseCase {
       repository.watchPending();
 }
 
-class RecordDetectedUseCase implements UseCase<bool, String> {
+class RecordDetectedParams extends Equatable {
+  final String id;
+  final String? categoryId;
+  const RecordDetectedParams(this.id, {this.categoryId});
+
+  @override
+  List<Object?> get props => [id, categoryId];
+}
+
+class RecordDetectedUseCase
+    implements UseCase<bool, RecordDetectedParams> {
   final NotificationRepository repository;
   RecordDetectedUseCase(this.repository);
 
   @override
-  Future<Either<Failure, bool>> call(String id) => repository.record(id);
+  Future<Either<Failure, bool>> call(RecordDetectedParams p) =>
+      repository.record(p.id, categoryId: p.categoryId);
 }
 
 class IgnoreDetectedUseCase implements UseCase<void, String> {

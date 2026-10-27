@@ -6,7 +6,7 @@ import '../models/notification_source_model.dart';
 /// Sumber data deteksi notifikasi dari database lokal.
 abstract class NotificationLocalDataSource {
   Stream<List<DetectedTransactionModel>> watchPending();
-  Future<bool> record(String id);
+  Future<bool> record(String id, {String? categoryId});
   Future<void> ignore(String id);
   Future<void> ignoreAll();
   Future<void> changeWallet(String id, String walletId);
@@ -46,7 +46,8 @@ class NotificationLocalDataSourceImpl implements NotificationLocalDataSource {
           ]);
 
   @override
-  Future<bool> record(String id) => detected.record(id);
+  Future<bool> record(String id, {String? categoryId}) =>
+      detected.record(id, categoryId: categoryId);
 
   @override
   Future<void> ignore(String id) => detected.ignore(id);

@@ -56,6 +56,22 @@ void main() {
       await add('a', plusSec: 1000);
       expect(await activeCount(db, 'detected_transactions'), 1);
     });
+    test('nominal sama tapi merchant beda dalam jendela tetap disimpan',
+        () async {
+      Future<void> m(String fp, String merchant) => repo.addDetected(
+            fingerprint: fp,
+            walletId: 'W',
+            sourcePackage: 'com.bank',
+            amount: 2000,
+            type: 'expense',
+            merchant: merchant,
+            detectedAt: base,
+          );
+      await m('a', 'Parkir A');
+      await m('b', 'Parkir B');
+      await m('c', 'Parkir A'); // duplikat sungguhan
+      expect(await activeCount(db, 'detected_transactions'), 2);
+    });
   });
 
   group('record (#7)', () {
@@ -84,6 +100,25 @@ void main() {
       final r = await Future.wait([repo.record(id), repo.record(id)]);
       expect(r.where((x) => x).length, 1);
       expect(await activeCount(db, 'transactions'), 1);
+    });
+    test('kategori yang dipilih tersimpan di transaksi', () async {
+      await db.into(db.categories).insert(CategoriesCompanion.insert(
+            id: 'cat-makan',
+            name: 'Makanan',
+            type: 'expense',
+          ));
+      await add('a');
+      final id = await firstId();
+      expect(await repo.record(id, categoryId: 'cat-makan'), isTrue);
+      final tx = await db.select(db.transactions).getSingle();
+      expect(tx.categoryId, 'cat-makan');
+      expect(tx.source, 'notification');
+    });
+    test('tanpa kategori -> categoryId null', () async {
+      await add('a');
+      expect(await repo.record(await firstId()), isTrue);
+      final tx = await db.select(db.transactions).getSingle();
+      expect(tx.categoryId, isNull);
     });
   });
 

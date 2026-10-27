@@ -84,12 +84,29 @@ const _ignoreWords = [
   'promo',
   'diskon',
   'voucher',
+  // Iklan / promosi (Inggris & Indonesia)
+  'get cashback',
+  'dapatkan',
+  'discount',
+  'enjoy',
+  'or more',
+  'atau lebih',
+  'minimum',
+  'jangan lewatkan',
+  'buruan',
+  'ayo',
+  'yuk',
 ];
 
 /// Nominal yang diawali kata "saldo"/"sisa" (saldo akhir), bukan nominal transaksi.
 /// Catatan: "transfer saldo senilai Rp..." (SeaBank) adalah nominal transaksi.
 final _balanceBefore = RegExp(
   r'(?:\bsisa(?:\s+saldo)?|\bsaldo(?:\s+(?:akhir|kamu|anda|mu|tersisa|sekarang))?)\s*:?\s*$',
+);
+
+/// Kata pengali yang mengikuti angka ("5 million", "2 juta", "500 rb").
+final _magnitudeAfter = RegExp(
+  r'^\s*(?:million|billion|thousand|juta|miliar|milyar|ribu|jt|rb|k)\b',
 );
 
 double? _parseAmount(String text) {
@@ -105,6 +122,10 @@ double? _parseAmount(String text) {
       m.start,
     );
     if (_balanceBefore.hasMatch(before)) continue;
+
+    // "IDR 5 million" / "Rp5 juta" = nominal promosi, bukan transaksi; jangan
+    // dibaca sebagai 5 rupiah.
+    if (_magnitudeAfter.hasMatch(lower.substring(m.end))) continue;
 
     var s = m.group(1)!;
     s = s.replaceAll(RegExp(r'[.,]+$'), '');

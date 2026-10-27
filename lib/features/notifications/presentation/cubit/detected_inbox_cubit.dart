@@ -53,7 +53,8 @@ class DetectedInboxCubit extends Cubit<DetectedInboxState> {
     });
   }
 
-  Future<Either<Failure, bool>> record(String id) => _record(id);
+  Future<Either<Failure, bool>> record(String id, {String? categoryId}) =>
+      _record(RecordDetectedParams(id, categoryId: categoryId));
 
   Future<Either<Failure, void>> ignore(String id) => _ignore(id);
 
