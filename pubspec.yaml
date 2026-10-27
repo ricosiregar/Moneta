@@ -17,7 +17,6 @@ dependencies:
   # State management
   flutter_bloc: ^9.1.1
   equatable: ^2.1.0
-  bloc_concurrency: ^0.3.0
 
   # DI & Routing
   get_it: ^9.2.1
@@ -32,39 +31,30 @@ dependencies:
   freezed_annotation: ^3.0.0
   json_annotation: ^4.9.0
 
-  # AI & Scan Struk
-  image_picker: ^1.2.2
-  google_generative_ai: ^0.4.7
-  google_mlkit_text_recognition: ^0.16.0
-
-  # Auto-deteksi transaksi (pilih satu — ini yang lebih aktif maintained)
+  # Auto-deteksi transaksi notifikasi bank
   notification_listener_service: ^1.0.0
 
-  # Grafik & laporan
-  fl_chart: ^1.2.0
-
-  # Export CSV
-  csv: ^6.0.0
+  # Export & Share berkas
   path_provider: ^2.1.5
   share_plus: ^12.0.2
+  file_picker: ^11.0.3
 
-  # Spending challenge (local storage sederhana)
+  # Local storage sederhana
   shared_preferences: ^2.5.5
 
   # Backend
   supabase_flutter: ^2.17.2
 
-  # Offline-first (opsional, boleh dihapus dulu kalau belum dipakai)
+  # Offline-first local database
   drift: ^2.31.0
   sqlite3_flutter_libs: ^0.5.35
   path: ^1.9.1
 
-  # Env
+  # Env & Utilitas
   flutter_dotenv: ^6.0.1
   intl: ^0.20.2
   liquid_glass_widgets: ^1.9.0
   uuid: ^4.6.0
-  file_picker: ^11.0.3
 
 dev_dependencies:
   flutter_test:

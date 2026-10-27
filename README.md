@@ -166,9 +166,9 @@ personal_finance/
 | **Cloud Backend**        | `supabase_flutter`                        | `^2.17.2`                        | Autentikasi & Sinkronisasi Database Cloud                   |
 | **Dependency Injection** | `get_it` + `injectable`                   | `^9.2.1` / `^3.0.0`              | Service Locator & DI                                        |
 | **Routing**              | `go_router`                               | `^14.8.0`                        | Navigasi Deklaratif & Auth Guard                            |
-| **UI & Visual**          | `liquid_glass_widgets`, `fl_chart`        | `^1.9.0` / `^1.2.0`              | Efek Liquid Glass & Grafik Keuangan                         |
+| **UI & Visual**          | `liquid_glass_widgets`                    | `^1.9.0`                         | Komponen Efek Liquid Glass                                  |
 | **Auto-Deteksi Bank**    | `notification_listener_service`           | `^1.0.0`                         | Listener Notifikasi Bank di Android                         |
-| **Backup & Berkas**      | `csv`, `share_plus`, `file_picker`        | `^6.0.0` / `^12.0.2` / `^11.0.3` | Ekspor & Impor Data Transaksi                               |
+| **Backup & Berkas**      | `share_plus`, `file_picker`               | `^12.0.2` / `^11.0.3`            | Ekspor & Impor Data Transaksi                               |
 | **Utilitas**             | `dartz`, `intl`, `uuid`, `flutter_dotenv` | —                                | Functional Error Handling, Lokalisasi `id_ID` & Konfigurasi |
 
 ---
