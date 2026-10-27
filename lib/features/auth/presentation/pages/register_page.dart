@@ -213,7 +213,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                       // Full Name Field
                                       AuthTextField(
                                         label: "Nama Lengkap",
-                                        hint: "Contoh: Alex Pratama",
+                                        hint: "Contoh: John Doe",
                                         controller: _nameController,
                                         prefixIcon:
                                             Icons.person_outline_rounded,
@@ -234,7 +234,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                       // Email Field
                                       AuthTextField(
                                         label: "Email",
-                                        hint: "nama@email.com",
+                                        hint: "johndoe@gmail.com",
                                         controller: _emailController,
                                         prefixIcon: Icons.email_outlined,
                                         keyboardType:

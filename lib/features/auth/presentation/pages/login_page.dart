@@ -166,7 +166,7 @@ class _LoginPageState extends State<LoginPage> {
                                       // Email Field
                                       AuthTextField(
                                         label: "Email",
-                                        hint: "nama@email.com",
+                                        hint: "johndoe@gmail.com",
                                         controller: _emailController,
                                         prefixIcon: Icons.email_outlined,
                                         keyboardType:
